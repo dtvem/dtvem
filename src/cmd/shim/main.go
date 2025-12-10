@@ -34,8 +34,8 @@ func runShim() error {
 	// Determine which runtime this shim belongs to
 	runtimeName := mapShimToRuntime(shimName)
 
-	// Get the runtime provider
-	provider, err := runtime.Get(runtimeName)
+	// Get the runtime provider (using ShimProvider interface for minimal dependencies)
+	provider, err := runtime.GetShimProvider(runtimeName)
 	if err != nil {
 		return fmt.Errorf("runtime provider not found: %w", err)
 	}
@@ -47,35 +47,22 @@ func runShim() error {
 		return handleNoConfiguredVersion(shimName, runtimeName, provider)
 	}
 
+	// Check if the version is installed
+	installed, err := provider.IsInstalled(version)
+	if err != nil {
+		return fmt.Errorf("could not check if %s %s is installed: %w", runtimeName, version, err)
+	}
+
+	if !installed {
+		ui.Error("%s %s is configured but not installed", provider.DisplayName(), version)
+		ui.Info("To install, run: dtvem install %s %s", runtimeName, version)
+		return fmt.Errorf("version not installed")
+	}
+
 	// Get the path to the actual executable
 	execPath, err := provider.ExecutablePath(version)
 	if err != nil {
-		// Check if the version is not installed
-		if strings.Contains(err.Error(), "not found") {
-			// Offer to install it
-			if shouldAutoInstall(provider.DisplayName(), version) {
-				ui.Info("Installing %s %s...", provider.DisplayName(), version)
-
-				if installErr := provider.Install(version); installErr != nil {
-					ui.Error("Failed to install %s %s: %v", provider.DisplayName(), version, installErr)
-					ui.Info("Please install manually with: dtvem install %s %s", runtimeName, version)
-					return fmt.Errorf("installation failed")
-				}
-
-				ui.Success("Successfully installed %s %s", provider.DisplayName(), version)
-
-				// Retry getting the executable path
-				execPath, err = provider.ExecutablePath(version)
-				if err != nil {
-					return fmt.Errorf("could not find %s %s after installation: %w", runtimeName, version, err)
-				}
-			} else {
-				ui.Info("To install manually, run: dtvem install %s %s", runtimeName, version)
-				return fmt.Errorf("installation declined")
-			}
-		} else {
-			return fmt.Errorf("could not find %s %s: %w", runtimeName, version, err)
-		}
+		return fmt.Errorf("could not find %s %s executable: %w", runtimeName, version, err)
 	}
 
 	// If the shim name differs from the base runtime name,
@@ -109,7 +96,7 @@ func runShim() error {
 
 // handleNoConfiguredVersion handles the case when no dtvem version is configured
 // It attempts to fallback to system PATH or prompts for installation
-func handleNoConfiguredVersion(shimName, runtimeName string, provider runtime.Provider) error {
+func handleNoConfiguredVersion(shimName, runtimeName string, provider runtime.ShimProvider) error {
 	// Try to find the executable deeper in PATH (system installation)
 	systemPath := findInSystemPath(shimName)
 
@@ -194,12 +181,6 @@ func findInSystemPath(execName string) string {
 	return ""
 }
 
-// shouldAutoInstall prompts the user to install a missing version.
-// Delegates to ui.PromptInstall for consistent behavior across CLI and shim.
-func shouldAutoInstall(displayName, version string) bool {
-	return ui.PromptInstall(displayName, version)
-}
-
 // getShimName returns the name of this shim binary
 func getShimName() string {
 	shimPath := os.Args[0]
@@ -216,8 +197,8 @@ func getShimName() string {
 // This queries all registered providers for their shims, eliminating the need
 // for a central hardcoded mapping.
 func mapShimToRuntime(shimName string) string {
-	// Get all registered providers
-	providers := runtime.GetAll()
+	// Get all registered providers (using ShimProvider interface)
+	providers := runtime.GetAllShimProviders()
 
 	// Check each provider's shims for an exact match first
 	for _, provider := range providers {
