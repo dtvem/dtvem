@@ -205,13 +205,22 @@ For detailed guidelines and examples, see [Commit Convention Guide](docs/COMMIT_
 To add support for a new runtime (e.g., Ruby):
 
 1. Create `src/runtimes/ruby/provider.go`
-2. Implement the `runtime.Provider` interface:
+2. Implement the `runtime.Provider` interface (which embeds `runtime.ShimProvider`):
    ```go
    type Provider struct {}
 
+   // ShimProvider methods (used by the shim binary)
    func (p *Provider) Name() string { return "ruby" }
    func (p *Provider) DisplayName() string { return "Ruby" }
-   // ... implement all other methods
+   func (p *Provider) Shims() []string { return []string{"ruby", "gem", "bundle"} }
+   func (p *Provider) ExecutablePath(version string) (string, error) { ... }
+   func (p *Provider) IsInstalled(version string) (bool, error) { ... }
+   func (p *Provider) ShouldReshimAfter(shimName string, args []string) bool { ... }
+
+   // Provider-only methods (used by CLI, can include net/http)
+   func (p *Provider) Install(version string) error { ... }
+   func (p *Provider) ListAvailable() ([]runtime.AvailableVersion, error) { ... }
+   // ... implement remaining methods
    ```
 3. Register the provider in the `init()` function:
    ```go
@@ -219,14 +228,23 @@ To add support for a new runtime (e.g., Ruby):
        runtime.Register(NewProvider())
    }
    ```
-4. Import the provider in `src/main.go`:
+4. Import the provider in **both** files:
+   - `src/main.go` (for the CLI)
+   - `src/cmd/shim/main.go` (for the shim)
    ```go
    _ "github.com/dtvem/dtvem/src/runtimes/ruby"
    ```
-5. Implement the `Shims()` method to define which executables this runtime provides
-6. Implement the `ShouldReshimAfter()` method for automatic reshim detection
-7. Add tests using the provider contract harness
-8. Update README.md to reflect the new runtime support
+5. Add tests using the provider contract harness
+6. Update README.md to reflect the new runtime support
+
+### ShimProvider vs Provider
+
+The `Provider` interface embeds `ShimProvider`. This separation exists for performance:
+
+- **ShimProvider**: Minimal interface used by the shim binary. Methods here should NOT import `net/http` or other heavy dependencies.
+- **Provider**: Full interface for CLI operations. Can use any dependencies.
+
+Go's linker eliminates unused code, so keeping `ShimProvider` methods dependency-free results in a smaller, faster shim binary (~4.5MB vs ~10MB).
 
 ## Testing Guidelines
 

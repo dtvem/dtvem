@@ -1,8 +1,10 @@
 // Package runtime defines the provider interface and registry for runtime managers
 package runtime
 
-// Provider defines the interface that all runtime providers must implement
-type Provider interface {
+// ShimProvider defines the minimal interface needed by the shim executable.
+// This interface excludes heavy operations like Install() and ListAvailable()
+// that require net/http and other dependencies not needed for shim execution.
+type ShimProvider interface {
 	// Name returns the name of the runtime (e.g., "python", "node", "ruby")
 	Name() string
 
@@ -13,6 +15,25 @@ type Provider interface {
 	// For example, Python returns ["python", "python3", "pip", "pip3"]
 	// Node.js returns ["node", "npm", "npx"]
 	Shims() []string
+
+	// ExecutablePath returns the path to the main executable for a given version
+	// For example, for Python 3.11.0, this might return "/path/to/python3.11"
+	ExecutablePath(version string) (string, error)
+
+	// IsInstalled checks if a specific version is installed
+	IsInstalled(version string) (bool, error)
+
+	// ShouldReshimAfter checks if the given command should trigger a reshim.
+	// Returns true if the command installs or uninstalls global packages that add/remove executables.
+	// The shimName parameter indicates which shim was invoked (e.g., "npm", "pip")
+	// The args parameter contains the command arguments (e.g., ["install", "-g", "typescript"])
+	ShouldReshimAfter(shimName string, args []string) bool
+}
+
+// Provider defines the full interface that all runtime providers must implement.
+// It embeds ShimProvider and adds operations that require heavier dependencies.
+type Provider interface {
+	ShimProvider
 
 	// Install downloads and installs a specific version of the runtime
 	Install(version string) error
@@ -26,13 +47,6 @@ type Provider interface {
 	// ListAvailable returns all available versions that can be installed
 	// This might query online sources or use cached data
 	ListAvailable() ([]AvailableVersion, error)
-
-	// ExecutablePath returns the path to the main executable for a given version
-	// For example, for Python 3.11.0, this might return "/path/to/python3.11"
-	ExecutablePath(version string) (string, error)
-
-	// IsInstalled checks if a specific version is installed
-	IsInstalled(version string) (bool, error)
 
 	// InstallPath returns the installation directory for a given version
 	InstallPath(version string) (string, error)
@@ -72,10 +86,4 @@ type Provider interface {
 	// Used to provide help text to users if automatic package installation fails
 	// Returns empty string if the runtime doesn't support global packages
 	ManualPackageInstallCommand(packages []string) string
-
-	// ShouldReshimAfter checks if the given command should trigger a reshim.
-	// Returns true if the command installs or uninstalls global packages that add/remove executables.
-	// The shimName parameter indicates which shim was invoked (e.g., "npm", "pip")
-	// The args parameter contains the command arguments (e.g., ["install", "-g", "typescript"])
-	ShouldReshimAfter(shimName string, args []string) bool
 }

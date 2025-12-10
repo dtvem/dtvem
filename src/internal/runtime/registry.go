@@ -132,3 +132,20 @@ func Unregister(name string) error {
 func GetRegistry() *Registry {
 	return globalRegistry
 }
+
+// GetShimProvider retrieves a provider as ShimProvider from the global registry.
+// This returns only the minimal interface needed by the shim.
+func GetShimProvider(name string) (ShimProvider, error) {
+	return globalRegistry.Get(name)
+}
+
+// GetAllShimProviders returns all providers as ShimProviders from the global registry.
+// This returns only the minimal interface needed by the shim.
+func GetAllShimProviders() []ShimProvider {
+	providers := globalRegistry.GetAll()
+	shimProviders := make([]ShimProvider, len(providers))
+	for i, p := range providers {
+		shimProviders[i] = p
+	}
+	return shimProviders
+}

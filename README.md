@@ -208,25 +208,23 @@ Reads .dtvem/runtimes.json → {"python": "3.11.0"}
 Executes: ~/.dtvem/versions/python/3.11.0/bin/python --version
 ```
 
-### Auto-Install Missing Versions
+### Missing Version Handling
 
-When you run a command that requires a version that isn't installed yet, dtvem will offer to install it automatically:
+When you run a command that requires a version that isn't installed yet, dtvem will tell you how to install it:
 
 ```bash
 $ python --version
-⚠ Python 3.11.0 is not installed
-→ Install it now? [Y/n]: y
-→ Installing Python 3.11.0...
-✓ Successfully installed Python 3.11.0
-Python 3.11.0
+✗ Python 3.11.0 is configured but not installed
+→ To install, run: dtvem install python 3.11.0
 ```
 
-This works seamlessly with bulk install - just clone a repo with a `.dtvem/runtimes.json` file and start using it. The first time you run a command, dtvem will offer to install the required version.
-
-**Environment Variable Control:**
-- `DTVEM_AUTO_INSTALL=false` - Disable auto-install in CI/automation
-- `DTVEM_AUTO_INSTALL=true` - Auto-install without prompting
-- Default - Interactive prompt
+**Bulk Install from Config:**
+Clone a repo with a `.dtvem/runtimes.json` file and run:
+```bash
+dtvem install          # Prompts for confirmation
+dtvem install --yes    # Skip confirmation
+```
+This installs all configured versions at once.
 
 ### System PATH Fallback
 
@@ -369,10 +367,6 @@ System-wide default versions (JSON format):
 ### Environment Variables
 
 - `DTVEM_ROOT`: Override default dtvem directory (default: `~/.dtvem`)
-- `DTVEM_AUTO_INSTALL`: Control auto-install behavior when a configured version is missing
-  - `false` - Disable auto-install prompts (useful for CI/automation)
-  - `true` - Auto-install without prompting
-  - Not set - Interactive prompt (default)
 
 ## Supported Runtimes
 
@@ -462,30 +456,48 @@ Remove this installation? [y/N]: y
 
 ## Plugin System
 
-dtvem uses an embedded plugin system with a registry pattern. Each runtime provider owns its shim definitions (executables it provides), making the architecture fully decentralized:
+dtvem uses an embedded plugin system with a registry pattern. Each runtime provider owns its shim definitions (executables it provides), making the architecture fully decentralized.
+
+### Provider Interfaces
+
+Providers implement two interfaces - a lightweight `ShimProvider` for the shim binary, and the full `Provider` for the CLI:
 
 ```go
-// Each runtime implements the Provider interface (19 methods)
-type Provider interface {
+// ShimProvider - minimal interface used by the shim binary
+// Excludes heavy dependencies like net/http to keep shim fast and small
+type ShimProvider interface {
     Name() string                                    // e.g., "python"
     DisplayName() string                             // e.g., "Python"
     Shims() []string                                 // e.g., ["python", "python3", "pip", "pip3"]
+    ExecutablePath(version string) (string, error)
+    IsInstalled(version string) (bool, error)
     ShouldReshimAfter(shimName, args) bool           // e.g., detect "npm install -g"
-    Install(version string) error
-    DetectInstalled() ([]DetectedVersion, error)
-    // ... 13 more methods
 }
 
+// Provider - full interface for CLI operations (embeds ShimProvider)
+type Provider interface {
+    ShimProvider
+    Install(version string) error
+    ListAvailable() ([]AvailableVersion, error)     // requires net/http
+    DetectInstalled() ([]DetectedVersion, error)
+    // ... more methods
+}
+```
+
+**Why two interfaces?** The shim binary runs on every `node`, `python`, `npm` command. By using `ShimProvider`, Go's linker eliminates unused code (like `net/http`), reducing shim size from ~10MB to ~4.5MB and improving startup time.
+
+### Adding a New Runtime
+
+1. Create `src/runtimes/<name>/provider.go`
+2. Implement the `Provider` interface (which includes all `ShimProvider` methods)
+3. Import in `src/main.go` and `src/cmd/shim/main.go`
+
+```go
 // Runtimes auto-register on startup
 func init() {
     runtime.Register(NewProvider())
 }
 ```
-
-**Adding a new runtime is as simple as:**
-1. Create `src/runtimes/<name>/provider.go`
-2. Implement the `Provider` interface (including `Shims()` and `ShouldReshimAfter()`)
-3. Import in `src/main.go`
 
 **That's it!** The shim mappings are automatically registered via the `Shims()` method, and automatic reshim detection works via `ShouldReshimAfter()`. No need to modify central mapping files.
 
