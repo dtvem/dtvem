@@ -252,6 +252,60 @@ code --install-extension vivaxy.vscode-conventional-commits
 
 **IntelliJ/GoLand**: Install the "Git Commit Template" plugin
 
+## Release Notes
+
+Release notes are automatically generated from merged PRs. The changelog workflow uses PR titles and linked issue numbers.
+
+### Changelog Categories
+
+PRs are categorized based on their conventional commit prefix:
+
+| Category | Prefixes |
+|----------|----------|
+| 🐛 Bug Fixes | `fix` |
+| ⚡ Performance & Improvements | `perf`, `refactor` |
+| 🎉 New Features | `feat` |
+| 🔧 Maintenance | `docs`, `style`, `test`, `build`, `ci`, `chore` |
+| 📦 Other | Uncategorized |
+
+### Entry Format
+
+Each entry shows: `- PR title (#issue)` sorted by issue number within each category.
+
+Example:
+```markdown
+### 🐛 Bug Fixes
+
+- fix(init): use system path on windows for correct priority (#55)
+- fix(shim): propagate exit code instead of reporting failure (#59)
+
+### 🎉 New Features
+
+- feat(list): show all runtimes and indicate global version (#54)
+```
+
+### Custom Highlights
+
+To feature a PR in the "Highlights" section, add a `/release-note` comment on the PR:
+
+```
+/release-note Shim binary is now 56% smaller with faster startup
+```
+
+### Excluding PRs from Changelog
+
+Add a `/skip-changelog` comment on any PR to exclude it from release notes. Useful for:
+- Documentation-only PRs
+- CI/CD changes
+- Minor refactors
+
+### Preview Changelog
+
+Preview release notes before creating a release:
+1. Go to [Actions → Preview Changelog](https://github.com/dtvem/dtvem/actions/workflows/preview-changelog.yml)
+2. Click "Run workflow"
+3. Review the generated changelog in the workflow output
+
 ## Resources
 
 - [Conventional Commits Specification](https://www.conventionalcommits.org/)

@@ -523,13 +523,29 @@ dtvem install
 npm install
 ```
 
+### npm Scripts
+
+Development tasks are available via npm:
+
+| Script | Description |
+|--------|-------------|
+| `npm run format` | Format all Go source files |
+| `npm run lint` | Run golangci-lint |
+| `npm run test` | Run all tests |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run build` | Build both CLI and shim binaries |
+| `npm run install` | Build and install to ~/.dtvem/bin |
+| `npm run clean` | Clean build artifacts |
+| `npm run check` | Run format, lint, and test |
+
 ### Building
 
 ```bash
-# Build main executable
-go build -o dist/dtvem.exe ./src
+# Using npm (recommended)
+npm run build
 
-# Build shim executable
+# Or directly with Go
+go build -o dist/dtvem.exe ./src
 go build -o dist/dtvem-shim.exe ./src/cmd/shim
 
 # Build for specific platforms
@@ -541,18 +557,14 @@ GOOS=windows GOARCH=amd64 go build -o dist/dtvem.exe ./src
 ### Testing
 
 ```bash
-# Run all tests
+# Using npm (recommended)
+npm run test
+npm run test:coverage
+
+# Or directly with Go
 cd src && go test ./...
-
-# Run tests for a specific package
 cd src && go test ./internal/config -v
-
-# Run tests with coverage
 cd src && go test -cover ./...
-
-# Generate HTML coverage report
-cd src && go test -coverprofile=coverage.out ./...
-cd src && go tool cover -html=coverage.out -o coverage.html
 ```
 
 **Test Coverage (63+ tests):**
@@ -633,12 +645,16 @@ To create a new release:
 
 1. **Ensure all tests pass locally:**
    ```bash
-   cd src && go test ./...
+   npm run check
    ```
 
 2. **Commit and push your changes to `main` branch**
 
-3. **Trigger the release workflow manually:**
+3. **Preview the changelog (optional):**
+   - Go to [Actions → Preview Changelog](https://github.com/dtvem/dtvem/actions/workflows/preview-changelog.yml)
+   - Click "Run workflow" to see what release notes will be generated
+
+4. **Trigger the release workflow:**
    - Go to [Actions → Release](https://github.com/dtvem/dtvem/actions/workflows/release.yml)
    - Click "Run workflow"
    - Select the `main` branch
@@ -653,6 +669,26 @@ The release workflow will automatically:
 - Generate a changelog from commits since the last release
 - Create a GitHub Release with binaries, install scripts, and changelog
 - **Important:** Release is only created if all tests pass on all platforms
+
+### Release Notes Generation
+
+Release notes are automatically generated from merged PRs since the last release:
+
+**Categorization by Commit Type:**
+- 🐛 **Bug Fixes** - PRs with `fix` prefix
+- ⚡ **Performance & Improvements** - PRs with `perf` or `refactor` prefix
+- 🎉 **New Features** - PRs with `feat` prefix
+- 🔧 **Maintenance** - PRs with `docs`, `style`, `test`, `build`, `ci`, or `chore` prefix
+- 📦 **Other** - Uncategorized PRs
+
+**Format:** Each entry shows `- PR title (#issue)` sorted by issue number.
+
+**Custom Highlights:** Add a `/release-note <message>` comment on any PR to feature it in the Highlights section:
+```
+/release-note Dark mode is now available! Toggle it in Settings > Appearance.
+```
+
+**Excluding PRs:** Add a `/skip-changelog` comment on any PR to exclude it from release notes.
 
 **Supported Release Platforms:**
 - Windows (amd64, arm64)
