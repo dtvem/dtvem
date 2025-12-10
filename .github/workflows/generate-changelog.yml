@@ -57,7 +57,7 @@ jobs:
           echo "Processing commit: $SHA"
 
           # Find the PR associated with this commit
-          PR_DATA=$(gh pr list --search "$SHA" --state merged --json number,title --limit 1 2>/dev/null || echo "[]")
+          PR_DATA=$(gh pr list --search "$SHA" --state merged --json number,title,body --limit 1 2>/dev/null || echo "[]")
 
           if [ "$PR_DATA" = "[]" ] || [ -z "$PR_DATA" ]; then
             echo "  No PR found, skipping"
@@ -66,11 +66,15 @@ jobs:
 
           PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
           PR_TITLE=$(echo "$PR_DATA" | jq -r '.[0].title // empty')
+          PR_BODY=$(echo "$PR_DATA" | jq -r '.[0].body // empty')
 
           if [ -z "$PR_NUMBER" ] || [ -z "$PR_TITLE" ]; then
             echo "  Could not get PR details, skipping"
             continue
           fi
+
+          # Extract linked issue numbers from PR body (Fixes #XX, Closes #XX, Resolves #XX)
+          ISSUE_NUMS=$(echo "$PR_BODY" | grep -oiE "(fixes|closes|resolves)\s*#[0-9]+" | grep -oE "[0-9]+" | sort -n | uniq || echo "")
 
           # Skip if we've already processed this PR
           if [ -n "${PROCESSED_PRS[$PR_NUMBER]}" ]; then
@@ -103,11 +107,21 @@ jobs:
             HIGHLIGHTS+=("$RELEASE_NOTE")
           fi
 
-          # Build entry using PR number and title
-          ENTRY="- #${PR_NUMBER} - $PR_TITLE"
+          # Build entry - use issue number(s) if available
+          if [ -n "$ISSUE_NUMS" ]; then
+            # Format multiple issues as "(#1, #2)"
+            ISSUE_LIST=$(echo "$ISSUE_NUMS" | sed 's/^/#/' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+            ENTRY="- $PR_TITLE (${ISSUE_LIST})"
+            # Use first issue number for sorting
+            SORT_NUM=$(echo "$ISSUE_NUMS" | head -1)
+          else
+            ENTRY="- $PR_TITLE"
+            # Use high number to sort PRs without issues to the end
+            SORT_NUM="99999"
+          fi
 
-          # Store with PR number prefix for sorting
-          SORTABLE_ENTRY="${PR_NUMBER}|${ENTRY}"
+          # Store with sort number prefix for sorting
+          SORTABLE_ENTRY="${SORT_NUM}|${ENTRY}"
 
           # Categorize by conventional commit prefix in PR title
           if echo "$PR_TITLE" | grep -qE "^fix(\(|:)"; then
