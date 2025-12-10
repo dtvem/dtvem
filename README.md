@@ -17,22 +17,27 @@
 
 </div>
 
-## Why dtvem?
+## 🤔 Why dtvem?
 
 Managing multiple versions of Python, Node.js, Ruby, and other runtimes across different projects is painful. Existing tools like `nvm`, `pyenv`, and `rbenv` work great on Unix systems but have limited or no Windows support. **dtvem** solves this by providing a single, unified tool that works seamlessly across all platforms.
 
 ### Key Features
 
-- **Cross-Platform**: Windows, Linux, and macOS with identical behavior
-- **Multiple Runtimes**: Python, Node.js (Ruby, Go, and more coming)
-- **Shim-Based**: Automatic version switching without shell integration
-- **Migration Tool**: Import existing installations from nvm, pyenv, etc.
-- **Per-Directory Versions**: `.dtvem/runtimes.json` for project-specific versions
-- **No Shell Hooks**: Works in cmd.exe, PowerShell, bash, zsh, fish, etc.
+✅ **Cross-Platform**: Windows, Linux, and macOS with identical behavior
+
+✅ **Multiple Runtimes**: Python, Node.js (Ruby, Go, and more coming)
+
+✅ **Shim-Based**: Automatic version switching without shell integration
+
+✅ **Migration Tool**: Import existing installations from nvm, pyenv, etc.
+
+✅ **Per-Directory Versions**: `.dtvem/runtimes.json` for project-specific versions
+
+✅ **No Shell Hooks**: Works in cmd.exe, PowerShell, bash, zsh, fish, etc.
 
 See [Competitive Analysis](https://github.com/dtvem/dtvem/wiki/Competitive-Analysis) for how dtvem compares to nvm, pyenv, asdf, and mise.
 
-## Installation
+## 📦 Installation
 
 **macOS / Linux:**
 ```bash
@@ -46,7 +51,7 @@ irm https://github.com/dtvem/dtvem/releases/latest/download/install.ps1 | iex
 
 See [Installation Guide](https://github.com/dtvem/dtvem/wiki/Installation) for manual installation, building from source, and PATH configuration.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # Install a runtime version
@@ -69,7 +74,7 @@ dtvem migrate python
 
 See [Quick Start Guide](https://github.com/dtvem/dtvem/wiki/Quick-Start) for more examples.
 
-## Documentation
+## 📚 Documentation
 
 | Topic | Description |
 |-------|-------------|
@@ -83,7 +88,7 @@ See [Quick Start Guide](https://github.com/dtvem/dtvem/wiki/Quick-Start) for mor
 | [Competitive Analysis](https://github.com/dtvem/dtvem/wiki/Competitive-Analysis) | vs nvm, pyenv, asdf, mise |
 | [Roadmap](https://github.com/dtvem/dtvem/wiki/Roadmap) | Planned features and runtimes |
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! See the [Development Guide](https://github.com/dtvem/dtvem/wiki/Development) for:
 
@@ -96,6 +101,8 @@ Contributions are welcome! See the [Development Guide](https://github.com/dtvem/
 ### Quick Setup
 
 ```bash
+# First, install dtvem (see Installation section above)
+# Then clone and set up the development environment:
 git clone https://github.com/dtvem/dtvem.git
 cd dtvem
 dtvem install      # Install Node.js for git hooks
@@ -103,13 +110,8 @@ npm install        # Set up dev dependencies
 npm run check      # Run format, lint, and tests
 ```
 
-### Areas for Contribution
+Looking for something to work on? Check out [good first issues](https://github.com/dtvem/dtvem/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-- Add more runtime providers (Ruby, Go, Rust, Java)
-- Add shell completion scripts
-- Improve documentation
-- Write more tests
-
-## License
+## 📄 License
 
 MIT License - See [LICENSE](LICENSE) file for details
