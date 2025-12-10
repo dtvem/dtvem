@@ -4,7 +4,17 @@
   "private": true,
   "description": "Development dependencies for dtvem - requires Node.js via dtvem",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "gofmt -w ./src",
+    "lint": "golangci-lint run --timeout=5m --config=.golangci.yml ./src/...",
+    "test": "go test -v ./src/...",
+    "test:coverage": "go test -v -coverprofile=coverage.out -covermode=atomic ./src/... && go tool cover -html=coverage.out -o coverage.html",
+    "build": "npm run build:cli && npm run build:shim",
+    "build:cli": "go build -v -ldflags=\"-s -w\" -o dist/dtvem.exe ./src",
+    "build:shim": "go build -v -ldflags=\"-s -w\" -o dist/dtvem-shim.exe ./src/cmd/shim",
+    "install": "npm run build && cp dist/dtvem.exe ~/.dtvem/bin/dtvem.exe && cp dist/dtvem-shim.exe ~/.dtvem/bin/dtvem-shim.exe && ~/.dtvem/bin/dtvem.exe reshim",
+    "clean": "rm -rf dist coverage.out coverage.html",
+    "check": "npm run format && npm run lint && npm run test"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",
