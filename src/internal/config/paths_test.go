@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/dtvem/dtvem/src/internal/constants"
 )
 
 func TestGetPaths(t *testing.T) {
@@ -283,5 +285,170 @@ func TestDefaultPaths_ConcurrentAccess(t *testing.T) {
 	}
 	if first.Root == "" {
 		t.Error("Root path is empty")
+	}
+}
+
+func TestGetXDGDataPath(t *testing.T) {
+	home := "/home/testuser"
+
+	tests := []struct {
+		name           string
+		xdgDataHome    string
+		expectedSuffix string
+	}{
+		{
+			name:           "XDG_DATA_HOME set",
+			xdgDataHome:    "/custom/data",
+			expectedSuffix: filepath.Join("/custom/data", "dtvem"),
+		},
+		{
+			name:           "XDG_DATA_HOME empty - use default",
+			xdgDataHome:    "",
+			expectedSuffix: filepath.Join(home, ".local", "share", "dtvem"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore XDG_DATA_HOME
+			originalXDG := os.Getenv("XDG_DATA_HOME")
+			defer func() {
+				if originalXDG != "" {
+					_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+				} else {
+					_ = os.Unsetenv("XDG_DATA_HOME")
+				}
+			}()
+
+			if tt.xdgDataHome != "" {
+				_ = os.Setenv("XDG_DATA_HOME", tt.xdgDataHome)
+			} else {
+				_ = os.Unsetenv("XDG_DATA_HOME")
+			}
+
+			result := getXDGDataPath(home)
+			if result != tt.expectedSuffix {
+				t.Errorf("getXDGDataPath(%q) = %q, want %q", home, result, tt.expectedSuffix)
+			}
+		})
+	}
+}
+
+func TestGetRootDir_XDGOnLinux(t *testing.T) {
+	// This test verifies the XDG behavior on Linux
+	// On other platforms, it verifies that XDG is NOT used
+	if runtime.GOOS != constants.OSLinux {
+		t.Skip("XDG tests only run on Linux")
+	}
+
+	// Save original environment
+	originalRoot := os.Getenv("DTVEM_ROOT")
+	originalXDG := os.Getenv("XDG_DATA_HOME")
+	defer func() {
+		if originalRoot != "" {
+			_ = os.Setenv("DTVEM_ROOT", originalRoot)
+		} else {
+			_ = os.Unsetenv("DTVEM_ROOT")
+		}
+		if originalXDG != "" {
+			_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+		} else {
+			_ = os.Unsetenv("XDG_DATA_HOME")
+		}
+		resetPathsForTesting()
+	}()
+
+	// Clear DTVEM_ROOT to test XDG behavior
+	_ = os.Unsetenv("DTVEM_ROOT")
+
+	// Test with custom XDG_DATA_HOME
+	customXDG := "/tmp/custom-xdg-data"
+	_ = os.Setenv("XDG_DATA_HOME", customXDG)
+	resetPathsForTesting()
+
+	result := getRootDir()
+	expected := filepath.Join(customXDG, "dtvem")
+	if result != expected {
+		t.Errorf("getRootDir() with XDG_DATA_HOME=%q = %q, want %q", customXDG, result, expected)
+	}
+
+	// Test with XDG_DATA_HOME unset (should use default)
+	_ = os.Unsetenv("XDG_DATA_HOME")
+	resetPathsForTesting()
+
+	result = getRootDir()
+	home, _ := os.UserHomeDir()
+	expected = filepath.Join(home, ".local", "share", "dtvem")
+	if result != expected {
+		t.Errorf("getRootDir() with XDG_DATA_HOME unset = %q, want %q", result, expected)
+	}
+}
+
+func TestGetRootDir_NonLinux(t *testing.T) {
+	// On non-Linux platforms, verify that ~/.dtvem is used regardless of XDG
+	if runtime.GOOS == constants.OSLinux {
+		t.Skip("This test only runs on non-Linux platforms")
+	}
+
+	// Save original environment
+	originalRoot := os.Getenv("DTVEM_ROOT")
+	originalXDG := os.Getenv("XDG_DATA_HOME")
+	defer func() {
+		if originalRoot != "" {
+			_ = os.Setenv("DTVEM_ROOT", originalRoot)
+		} else {
+			_ = os.Unsetenv("DTVEM_ROOT")
+		}
+		if originalXDG != "" {
+			_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+		} else {
+			_ = os.Unsetenv("XDG_DATA_HOME")
+		}
+		resetPathsForTesting()
+	}()
+
+	// Clear DTVEM_ROOT and set XDG_DATA_HOME
+	_ = os.Unsetenv("DTVEM_ROOT")
+	_ = os.Setenv("XDG_DATA_HOME", "/should/be/ignored")
+	resetPathsForTesting()
+
+	result := getRootDir()
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".dtvem")
+
+	if result != expected {
+		t.Errorf("getRootDir() on %s should ignore XDG_DATA_HOME, got %q, want %q",
+			runtime.GOOS, result, expected)
+	}
+}
+
+func TestGetRootDir_DTVEMRootOverridesXDG(t *testing.T) {
+	// Verify that DTVEM_ROOT takes precedence over XDG_DATA_HOME on all platforms
+	originalRoot := os.Getenv("DTVEM_ROOT")
+	originalXDG := os.Getenv("XDG_DATA_HOME")
+	defer func() {
+		if originalRoot != "" {
+			_ = os.Setenv("DTVEM_ROOT", originalRoot)
+		} else {
+			_ = os.Unsetenv("DTVEM_ROOT")
+		}
+		if originalXDG != "" {
+			_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+		} else {
+			_ = os.Unsetenv("XDG_DATA_HOME")
+		}
+		resetPathsForTesting()
+	}()
+
+	// Set both DTVEM_ROOT and XDG_DATA_HOME
+	customRoot := "/custom/dtvem/root"
+	_ = os.Setenv("DTVEM_ROOT", customRoot)
+	_ = os.Setenv("XDG_DATA_HOME", "/should/be/ignored")
+	resetPathsForTesting()
+
+	result := getRootDir()
+	if result != customRoot {
+		t.Errorf("getRootDir() with DTVEM_ROOT set should return DTVEM_ROOT, got %q, want %q",
+			result, customRoot)
 	}
 }
