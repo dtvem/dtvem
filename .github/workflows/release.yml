@@ -350,7 +350,7 @@ jobs:
           The installers automatically verify checksums before extraction.
         draft: false
         prerelease: false
-        generate_release_notes: true  # GitHub will auto-generate additional notes
+        generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
