@@ -6,6 +6,7 @@ import (
 
 	"github.com/dtvem/dtvem/src/internal/config"
 	"github.com/dtvem/dtvem/src/internal/runtime"
+	"github.com/dtvem/dtvem/src/internal/tui"
 	"github.com/dtvem/dtvem/src/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -77,33 +78,8 @@ Examples:
 		}
 
 		// Display the information
-		ui.Header("%s %s", provider.DisplayName(), ui.HighlightVersion(version))
-		fmt.Println()
-		ui.Success("Installed at: %s", installPath)
-		fmt.Println()
-
-		// Show additional information about the installation
-		ui.Info("Contents:")
-		entries, err := os.ReadDir(installPath)
-		if err != nil {
-			ui.Warning("Unable to read directory contents: %v", err)
-			return
-		}
-
-		// Show top-level directories/files
-		count := 0
-		for _, entry := range entries {
-			if count >= 10 {
-				ui.Info("  ... and %d more", len(entries)-count)
-				break
-			}
-			if entry.IsDir() {
-				ui.Info("  📁 %s/", entry.Name())
-			} else {
-				ui.Info("  📄 %s", entry.Name())
-			}
-			count++
-		}
+		fmt.Println(tui.RenderTitle(provider.DisplayName() + " " + version))
+		fmt.Println(tui.RenderInfoBox(installPath))
 	},
 }
 

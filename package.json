@@ -12,7 +12,7 @@
     "build": "npm run build:cli && npm run build:shim",
     "build:cli": "go build -v -ldflags=\"-s -w\" -o dist/dtvem.exe ./src",
     "build:shim": "go build -v -ldflags=\"-s -w\" -o dist/dtvem-shim.exe ./src/cmd/shim",
-    "install": "npm run build && cp dist/dtvem.exe ~/.dtvem/bin/dtvem.exe && cp dist/dtvem-shim.exe ~/.dtvem/bin/dtvem-shim.exe && ~/.dtvem/bin/dtvem.exe reshim",
+    "deploy:local": "npm run build && copy dist\\dtvem.exe %USERPROFILE%\\.dtvem\\bin\\dtvem.exe && copy dist\\dtvem-shim.exe %USERPROFILE%\\.dtvem\\bin\\dtvem-shim.exe && echo Deploy complete. Run 'dtvem reshim' manually to update shims.",
     "clean": "rm -rf dist coverage.out coverage.html",
     "check": "npm run format && npm run lint && npm run test"
   },

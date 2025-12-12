@@ -5,36 +5,69 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dtvem/dtvem/src/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "dtvem",
-	Short:   "Dev Tool Virtual Environment Manager",
-	Version: Version,
-	Long: `dtvem is a cross-platform virtual environment manager for developer tools.
-It allows you to manage multiple versions of Python, Node.js, and other runtimes,
-with first-class Windows support.
-
-Available commands:
-  install  - Install a specific version of a runtime
-  list     - List installed versions of a runtime
-  global   - Set the global default version of a runtime
-  local    - Set the local version for the current directory
-  current  - Show the currently active version(s)
-  migrate  - Migrate existing runtime installations to dtvem
-  reshim   - Regenerate shim binaries
-  version  - Show the dtvem version
-  help     - Show help for any command`,
+	Use:   "dtvem",
+	Short: "Developer Tools Virtual Environment Manager",
 }
 
 func Execute() {
+	// Check for --version or -v flag before Cobra parses
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" {
+			versionCmd.Run(versionCmd, []string{})
+			return
+		}
+	}
+
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// Error already printed by Cobra, just exit with error code
 		os.Exit(1)
 	}
 }
 
 func init() {
-	// Global flags and configuration initialization will go here
+	// Hide the completion command until we implement it
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+
+	// Set custom usage and help functions with TUI table for commands
+	rootCmd.SetUsageFunc(customUsage)
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		_ = customUsage(cmd)
+	})
+}
+
+func customUsage(cmd *cobra.Command) error {
+	const tableWidth = 95 // Consistent width for all tables
+
+	// Print header box with title and description
+	headerTable := tui.NewTable("")
+	headerTable.SetTitle(cmd.Short)
+	headerTable.HideHeader()
+	headerTable.SetMinWidth(tableWidth)
+	headerTable.AddRow("DTVEM is a cross-platform virtual environment manager for multiple developer tools,")
+	headerTable.AddRow("written in Go, with first-class support for Windows, MacOS, and Linux - right out of the box.")
+
+	fmt.Println(headerTable.Render())
+	fmt.Println()
+
+	// Build commands table
+	table := tui.NewTable("Command", "Description")
+	table.SetTitle("Available Commands")
+	table.SetMinWidth(tableWidth)
+
+	for _, c := range cmd.Commands() {
+		// Skip hidden commands and completion
+		if c.Hidden || c.Name() == "completion" {
+			continue
+		}
+		table.AddRow(c.Name(), c.Short)
+	}
+
+	fmt.Println(table.Render())
+
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dtvem/dtvem/src/internal/runtime"
+	"github.com/dtvem/dtvem/src/internal/tui"
 	"github.com/dtvem/dtvem/src/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -66,16 +67,20 @@ func showAllVersions() {
 	}
 
 	// Display all configured versions
-	ui.Header("Currently active versions:")
+	table := tui.NewTable("Runtime", "Version", "Status")
+	table.SetTitle("Active Versions")
 	var missing []runtimeStatus
+
 	for _, rs := range configured {
 		if rs.installed {
-			fmt.Printf("  %s: %s\n", ui.Highlight(rs.provider.DisplayName()), ui.HighlightVersion(rs.version))
+			table.AddActiveRow(rs.provider.DisplayName(), rs.version, tui.CheckMark+" installed")
 		} else {
-			ui.Warning("%s: %s (not installed)", rs.provider.DisplayName(), rs.version)
+			table.AddRow(rs.provider.DisplayName(), rs.version, tui.CrossMark+" not installed")
 			missing = append(missing, rs)
 		}
 	}
+
+	fmt.Println(table.Render())
 
 	// Prompt to install missing versions
 	if len(missing) > 0 {
@@ -109,13 +114,18 @@ func showSingleVersion(runtimeName string) {
 	}
 
 	installed, _ := provider.IsInstalled(version)
+
+	table := tui.NewTable("Runtime", "Version", "Status")
 	if installed {
-		fmt.Printf("%s: %s\n", ui.Highlight(provider.DisplayName()), ui.HighlightVersion(version))
+		table.AddActiveRow(provider.DisplayName(), version, tui.CheckMark+" installed")
+		fmt.Println(table.Render())
 		return
 	}
 
 	// Not installed - show with warning and prompt
-	ui.Warning("%s: %s (not installed)", provider.DisplayName(), version)
+	table.AddRow(provider.DisplayName(), version, tui.CrossMark+" not installed")
+	fmt.Println(table.Render())
+
 	fmt.Println()
 	if ui.PromptInstall(provider.DisplayName(), version) {
 		if err := provider.Install(version); err != nil {
