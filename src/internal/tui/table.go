@@ -81,6 +81,9 @@ func (t *Table) Render() string {
 		return ""
 	}
 
+	// Ensure styles are initialized
+	initStyles()
+
 	// Calculate total width for title
 	totalWidth := 0
 	for _, w := range t.widths {

@@ -4,156 +4,200 @@
 package tui
 
 import (
+	"sync"
+
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
-// Color palette
+// Lazy initialization to avoid cold start penalty from lipgloss terminal detection
 var (
-	colorPrimary   = lipgloss.Color("39")  // Cyan
-	colorSecondary = lipgloss.Color("213") // Magenta/Pink
-	colorSuccess   = lipgloss.Color("42")  // Green
-	colorWarning   = lipgloss.Color("214") // Orange/Yellow
-	colorError     = lipgloss.Color("196") // Red
-	colorMuted     = lipgloss.Color("245") // Gray
+	initOnce sync.Once
+
+	// Colors
+	colorPrimary   lipgloss.Color
+	colorSecondary lipgloss.Color
+	colorSuccess   lipgloss.Color
+	colorWarning   lipgloss.Color
+	colorError     lipgloss.Color
+	colorMuted     lipgloss.Color
+
+	// Text styles
+	StyleTitle            lipgloss.Style
+	StyleSubtitle         lipgloss.Style
+	StyleVersion          lipgloss.Style
+	StyleActiveVersion    lipgloss.Style
+	StyleRuntime          lipgloss.Style
+	StyleMuted            lipgloss.Style
+	StyleIndicator        lipgloss.Style
+	StyleWarningIndicator lipgloss.Style
+
+	// Box styles
+	StyleBox        lipgloss.Style
+	StyleInfoBox    lipgloss.Style
+	StyleSuccessBox lipgloss.Style
+	StyleErrorBox   lipgloss.Style
+
+	// Table styles
+	StyleTableHeader    lipgloss.Style
+	StyleTableCell      lipgloss.Style
+	StyleTableRowActive lipgloss.Style
+	StyleTableBorder    lipgloss.Style
+
+	// Indicator strings
+	CheckMark string
+	CrossMark string
+	Bullet    string
+	Arrow     string
 )
 
-// Text styles
-var (
-	// StyleTitle is for main headers and titles
-	StyleTitle = lipgloss.NewStyle().
+// initStyles initializes all lipgloss styles lazily
+func initStyles() {
+	initOnce.Do(func() {
+		// Force TrueColor profile to skip slow terminal capability detection
+		// See: https://github.com/charmbracelet/lipgloss/issues/86
+		lipgloss.SetColorProfile(termenv.TrueColor)
+
+		// Color palette
+		colorPrimary = lipgloss.Color("39")   // Cyan
+		colorSecondary = lipgloss.Color("213") // Magenta/Pink
+		colorSuccess = lipgloss.Color("42")   // Green
+		colorWarning = lipgloss.Color("214")  // Orange/Yellow
+		colorError = lipgloss.Color("196")    // Red
+		colorMuted = lipgloss.Color("245")    // Gray
+
+		// Text styles
+		StyleTitle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorPrimary).
 			MarginBottom(1)
 
-	// StyleSubtitle is for secondary headers
-	StyleSubtitle = lipgloss.NewStyle().
+		StyleSubtitle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorSecondary)
 
-	// StyleVersion is for version numbers
-	StyleVersion = lipgloss.NewStyle().
+		StyleVersion = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorSecondary)
 
-	// StyleActiveVersion is for currently active versions
-	StyleActiveVersion = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(colorSuccess)
+		StyleActiveVersion = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorSuccess)
 
-	// StyleRuntime is for runtime names (Python, Node.js, etc.)
-	StyleRuntime = lipgloss.NewStyle().
+		StyleRuntime = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorPrimary)
 
-	// StyleMuted is for dimmed/secondary text
-	StyleMuted = lipgloss.NewStyle().
+		StyleMuted = lipgloss.NewStyle().
 			Foreground(colorMuted)
 
-	// StyleIndicator is for status indicators (checkmarks, etc.)
-	StyleIndicator = lipgloss.NewStyle().
+		StyleIndicator = lipgloss.NewStyle().
 			Foreground(colorSuccess)
 
-	// StyleWarningIndicator is for warning indicators
-	StyleWarningIndicator = lipgloss.NewStyle().
-				Foreground(colorWarning)
-)
+		StyleWarningIndicator = lipgloss.NewStyle().
+			Foreground(colorWarning)
 
-// Box styles
-var (
-	// StyleBox is a generic rounded box
-	StyleBox = lipgloss.NewStyle().
+		// Box styles
+		StyleBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorMuted).
 			Padding(0, 1)
 
-	// StyleInfoBox is for informational content
-	StyleInfoBox = lipgloss.NewStyle().
+		StyleInfoBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorPrimary).
 			Padding(0, 1)
 
-	// StyleSuccessBox is for success messages
-	StyleSuccessBox = lipgloss.NewStyle().
+		StyleSuccessBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorSuccess).
 			Padding(0, 1)
 
-	// StyleErrorBox is for error messages
-	StyleErrorBox = lipgloss.NewStyle().
+		StyleErrorBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorError).
 			Padding(0, 1)
-)
 
-// Table styles
-var (
-	// StyleTableHeader is for table column headers
-	StyleTableHeader = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(colorPrimary).
-				PaddingRight(2)
-
-	// StyleTableCell is for regular table cells
-	StyleTableCell = lipgloss.NewStyle().
+		// Table styles
+		StyleTableHeader = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorPrimary).
 			PaddingRight(2)
 
-	// StyleTableRowActive is for highlighted/active rows
-	StyleTableRowActive = lipgloss.NewStyle().
-				Foreground(colorSuccess)
+		StyleTableCell = lipgloss.NewStyle().
+			PaddingRight(2)
 
-	// StyleTableBorder wraps the table in a rounded border
-	StyleTableBorder = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(colorMuted).
-				Padding(0, 1)
-)
+		StyleTableRowActive = lipgloss.NewStyle().
+			Foreground(colorSuccess)
 
-// Indicator constants with styles applied
-var (
-	// CheckMark is a styled checkmark indicator
-	CheckMark = StyleIndicator.Render("✓")
+		StyleTableBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorMuted).
+			Padding(0, 1)
 
-	// CrossMark is a styled cross/X indicator
-	CrossMark = lipgloss.NewStyle().Foreground(colorError).Render("✗")
+		// Indicator constants with styles applied
+		CheckMark = StyleIndicator.Render("✓")
+		CrossMark = lipgloss.NewStyle().Foreground(colorError).Render("✗")
+		Bullet = StyleMuted.Render("•")
+		Arrow = lipgloss.NewStyle().Foreground(colorPrimary).Render("→")
+	})
+}
 
-	// Bullet is a styled bullet point
-	Bullet = StyleMuted.Render("•")
-
-	// Arrow is a styled arrow indicator
-	Arrow = lipgloss.NewStyle().Foreground(colorPrimary).Render("→")
-)
+// Init ensures styles are initialized. Call this before using any styles.
+func Init() {
+	initStyles()
+}
 
 // RenderTitle renders a styled title
 func RenderTitle(text string) string {
+	initStyles()
 	return StyleTitle.Render(text)
 }
 
 // RenderRuntime renders a runtime name with styling
 func RenderRuntime(name string) string {
+	initStyles()
 	return StyleRuntime.Render(name)
 }
 
 // RenderVersion renders a version string with styling
 func RenderVersion(version string) string {
+	initStyles()
 	return StyleVersion.Render(version)
 }
 
 // RenderActiveVersion renders an active version string with styling
 func RenderActiveVersion(version string) string {
+	initStyles()
 	return StyleActiveVersion.Render(version)
 }
 
 // RenderMuted renders text in a muted/dim style
 func RenderMuted(text string) string {
+	initStyles()
 	return StyleMuted.Render(text)
 }
 
 // RenderBox renders content in a rounded box
 func RenderBox(content string) string {
+	initStyles()
 	return StyleBox.Render(content)
 }
 
 // RenderInfoBox renders content in an info-styled box
 func RenderInfoBox(content string) string {
+	initStyles()
 	return StyleInfoBox.Render(content)
+}
+
+// GetCheckMark returns the styled checkmark indicator
+func GetCheckMark() string {
+	initStyles()
+	return CheckMark
+}
+
+// GetCrossMark returns the styled cross indicator
+func GetCrossMark() string {
+	initStyles()
+	return CrossMark
 }
