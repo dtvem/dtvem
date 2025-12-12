@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/dtvem/dtvem/src/internal/config"
 	"github.com/dtvem/dtvem/src/internal/runtime"
+	"github.com/dtvem/dtvem/src/internal/tui"
 	"github.com/dtvem/dtvem/src/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -41,8 +44,6 @@ func listAllRuntimes() {
 		return
 	}
 
-	ui.Header("Installed versions:")
-
 	hasAny := false
 	for _, provider := range providers {
 		versions, err := provider.ListInstalled()
@@ -60,10 +61,23 @@ func listAllRuntimes() {
 		globalVersion, _ := provider.GlobalVersion()
 		localVersion, _ := config.LocalVersion(runtimeName)
 
-		ui.Printf("  %s:\n", ui.Highlight(provider.DisplayName()))
+		// Create table for this runtime with title
+		table := tui.NewTable("Version", "Status")
+		table.SetTitle(provider.DisplayName())
+
 		for _, v := range versions {
-			printVersionLine(v.String(), globalVersion, localVersion)
+			version := v.String()
+			status := getVersionStatus(version, globalVersion, localVersion)
+			isActive := isVersionActive(version, globalVersion, localVersion)
+
+			if isActive {
+				table.AddActiveRow(version, status)
+			} else {
+				table.AddRow(version, status)
+			}
 		}
+
+		fmt.Println(table.Render())
 	}
 
 	if !hasAny {
@@ -80,8 +94,6 @@ func listSingleRuntime(runtimeName string) {
 		return
 	}
 
-	ui.Header("Installed %s versions:", provider.DisplayName())
-
 	versions, err := provider.ListInstalled()
 	if err != nil {
 		ui.Error("%v", err)
@@ -96,36 +108,57 @@ func listSingleRuntime(runtimeName string) {
 	globalVersion, _ := provider.GlobalVersion()
 	localVersion, _ := config.LocalVersion(runtimeName)
 
+	// Create table with title
+	table := tui.NewTable("Version", "Status")
+	table.SetTitle(provider.DisplayName())
+
 	for _, v := range versions {
-		printVersionLine(v.String(), globalVersion, localVersion)
+		version := v.String()
+		status := getVersionStatus(version, globalVersion, localVersion)
+		isActive := isVersionActive(version, globalVersion, localVersion)
+
+		if isActive {
+			table.AddActiveRow(version, status)
+		} else {
+			table.AddRow(version, status)
+		}
 	}
+
+	fmt.Println(table.Render())
 }
 
-// printVersionLine prints a single version with appropriate indicators and colors
-// Active version (local > global) is shown in green
-// Indicators: 🌐 for global, 📍 for local
-func printVersionLine(version, globalVersion, localVersion string) {
+// getVersionStatus returns a status string for a version (global, local, or empty)
+func getVersionStatus(version, globalVersion, localVersion string) string {
 	isGlobal := version == globalVersion
 	isLocal := version == localVersion
 
-	// Determine if this is the active version (local takes priority over global)
-	isActive := isLocal || (isGlobal && localVersion == "")
-
-	// Build the indicator string
-	var indicators string
+	var parts []string
 	if isLocal {
-		indicators += " " + localIndicator
+		parts = append(parts, localIndicator+" local")
 	}
 	if isGlobal {
-		indicators += " " + globalIndicator
+		parts = append(parts, globalIndicator+" global")
 	}
 
-	// Format and print
-	if isActive {
-		ui.Printf("    %s%s\n", ui.ActiveVersion(version), indicators)
-	} else {
-		ui.Printf("    %s%s\n", version, indicators)
+	if len(parts) == 0 {
+		return ""
 	}
+
+	status := ""
+	for i, p := range parts {
+		if i > 0 {
+			status += ", "
+		}
+		status += p
+	}
+	return status
+}
+
+// isVersionActive returns true if this version is the currently active one
+func isVersionActive(version, globalVersion, localVersion string) bool {
+	isGlobal := version == globalVersion
+	isLocal := version == localVersion
+	return isLocal || (isGlobal && localVersion == "")
 }
 
 func init() {

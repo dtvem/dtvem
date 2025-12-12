@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/dtvem/dtvem/src/internal/ui"
+	"github.com/dtvem/dtvem/src/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,8 @@ var versionCmd = &cobra.Command{
 	Short: "Show the dtvem version",
 	Long:  `Display the current version of dtvem.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("dtvem version %s\n", ui.HighlightVersion(Version))
+		content := fmt.Sprintf("dtvem %s", tui.RenderVersion(Version))
+		fmt.Println(tui.RenderInfoBox(content))
 	},
 }
 
