@@ -5,7 +5,6 @@ set -e
 # Usage: curl -fsSL https://raw.githubusercontent.com/dtvem/dtvem/main/install.sh | bash
 
 REPO="dtvem/dtvem"
-INSTALL_DIR="$HOME/.dtvem/bin"
 
 # This will be replaced with the actual version during release
 # Format: DTVEM_RELEASE_VERSION="1.0.0"
@@ -34,6 +33,33 @@ error() {
 
 warning() {
     echo -e "${YELLOW}⚠${NC} $1"
+}
+
+# Get dtvem root directory
+# On Linux, respects XDG_DATA_HOME if set (defaults to ~/.local/share/dtvem)
+# On macOS, uses ~/.dtvem
+get_dtvem_root() {
+    # Check for DTVEM_ROOT environment variable first (overrides all)
+    if [ -n "$DTVEM_ROOT" ]; then
+        echo "$DTVEM_ROOT"
+        return
+    fi
+
+    local os
+    os=$(uname -s)
+
+    if [ "$os" = "Linux" ]; then
+        # Respect XDG Base Directory specification
+        if [ -n "$XDG_DATA_HOME" ]; then
+            echo "$XDG_DATA_HOME/dtvem"
+        else
+            # XDG default: ~/.local/share
+            echo "$HOME/.local/share/dtvem"
+        fi
+    else
+        # macOS and others: use ~/.dtvem
+        echo "$HOME/.dtvem"
+    fi
 }
 
 # Detect OS
@@ -179,6 +205,12 @@ main() {
     OS=$(detect_os)
     ARCH=$(detect_arch)
     info "Detected platform: ${OS}-${ARCH}"
+
+    # Determine install directory based on platform and XDG
+    DTVEM_ROOT=$(get_dtvem_root)
+    INSTALL_DIR="$DTVEM_ROOT/bin"
+    SHIMS_DIR="$DTVEM_ROOT/shims"
+    info "Install directory: $INSTALL_DIR"
 
     # Determine version to install
     local requested_version=""
@@ -336,7 +368,7 @@ main() {
     info "Running dtvem init to add shims directory to PATH..."
     if "$INSTALL_DIR/dtvem" init; then
         success "dtvem is ready to use!"
-        info "Both ~/.dtvem/bin and ~/.dtvem/shims have been added to PATH"
+        info "Both $INSTALL_DIR and $SHIMS_DIR have been added to PATH"
     else
         warning "dtvem init failed - you may need to run it manually"
     fi

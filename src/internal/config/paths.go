@@ -45,9 +45,29 @@ func initPaths() *Paths {
 	}
 }
 
-// getRootDir returns the root dtvem directory
+// getRootDir returns the root dtvem directory based on platform conventions.
+//
+// Path Selection Rationale:
+//
+// Linux: Follows XDG Base Directory Specification (https://specifications.freedesktop.org/basedir-spec/)
+//   - Uses $XDG_DATA_HOME/dtvem if XDG_DATA_HOME is set
+//   - Otherwise uses ~/.local/share/dtvem (XDG default)
+//   - This is the standard location for user-specific data files on Linux
+//
+// macOS: Uses ~/.dtvem
+//   - macOS has its own conventions (~/Library/Application Support) but many CLI tools
+//     use dotfiles in home directory for better discoverability and Unix compatibility
+//   - ~/.dtvem is more familiar to users coming from tools like nvm, pyenv, rbenv
+//
+// Windows: Uses %USERPROFILE%\.dtvem
+//   - Alternatives considered: %LOCALAPPDATA% (C:\Users\<user>\AppData\Local)
+//   - Chose home directory for consistency with macOS/Linux and better visibility
+//   - Users expect CLI tool configs in their home directory
+//   - Easier to locate and backup than buried in AppData
+//
+// Override: DTVEM_ROOT environment variable overrides all platform defaults
 func getRootDir() string {
-	// Check for DTVEM_ROOT environment variable first
+	// Check for DTVEM_ROOT environment variable first (overrides all)
 	if root := os.Getenv("DTVEM_ROOT"); root != "" {
 		return root
 	}
@@ -59,7 +79,23 @@ func getRootDir() string {
 		return ".dtvem"
 	}
 
+	// On Linux, respect XDG Base Directory specification
+	if runtime.GOOS == constants.OSLinux {
+		return getXDGDataPath(home)
+	}
+
+	// On macOS and Windows, use ~/.dtvem
 	return filepath.Join(home, ".dtvem")
+}
+
+// getXDGDataPath returns the XDG-compliant data path for dtvem on Linux
+// Uses XDG_DATA_HOME if set, otherwise defaults to ~/.local/share/dtvem
+func getXDGDataPath(home string) string {
+	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
+		return filepath.Join(xdgDataHome, "dtvem")
+	}
+	// XDG default: ~/.local/share
+	return filepath.Join(home, ".local", "share", "dtvem")
 }
 
 // RuntimeVersionPath returns the path to a specific runtime version
