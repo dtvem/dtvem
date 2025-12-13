@@ -61,6 +61,27 @@ gh issue create --title "..." --label enhancement --body "..."
 gh issue close <number>
 ```
 
+### GitHub Issue Dependencies (Blocked By / Blocking)
+
+```bash
+# List what blocks an issue
+gh api repos/dtvem/dtvem/issues/<number>/dependencies/blocked_by --jq '.[] | "#\(.number) \(.title)"'
+
+# List what an issue blocks
+gh api repos/dtvem/dtvem/issues/<number>/dependencies/blocking --jq '.[] | "#\(.number) \(.title)"'
+
+# Add a blocking relationship (issue <number> is blocked by <blocker_id>)
+# First get the blocker's numeric ID (not issue number):
+gh api repos/dtvem/dtvem/issues/<blocker_number> --jq '.id'
+# Then add the dependency:
+gh api repos/dtvem/dtvem/issues/<number>/dependencies/blocked_by -X POST -F issue_id=<blocker_id>
+
+# Remove a blocking relationship
+gh api repos/dtvem/dtvem/issues/<number>/dependencies/blocked_by/<blocker_id> -X DELETE
+```
+
+**Note:** The API uses numeric issue IDs (not issue numbers) for POST/DELETE operations. Get the ID with `gh api repos/dtvem/dtvem/issues/<number> --jq '.id'`
+
 ---
 
 ## Project Overview
