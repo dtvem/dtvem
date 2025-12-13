@@ -359,25 +359,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 2. Check common installation locations
-	locations := getNodeInstallLocations()
-	for _, loc := range locations {
-		if _, err := os.Stat(loc); err == nil {
-			if version, err := getNodeVersion(loc); err == nil {
-				if !seen[loc] {
-					detected = append(detected, runtime.DetectedVersion{
-						Version:   version,
-						Path:      loc,
-						Source:    "system",
-						Validated: true,
-					})
-					seen[loc] = true
-				}
-			}
-		}
-	}
-
-	// 3. Check nvm installations
+	// 2. Check nvm installations
 	nvmVersions := findNvmVersions()
 	for _, dv := range nvmVersions {
 		if !seen[dv.Path] {
@@ -386,7 +368,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 4. Check fnm installations
+	// 3. Check fnm installations
 	fnmVersions := findFnmVersions()
 	for _, dv := range fnmVersions {
 		if !seen[dv.Path] {
@@ -411,34 +393,6 @@ func getNodeVersion(nodePath string) (string, error) {
 	version = strings.TrimPrefix(version, "v")
 
 	return version, nil
-}
-
-// getNodeInstallLocations returns common Node.js installation paths
-func getNodeInstallLocations() []string {
-	home, _ := os.UserHomeDir()
-
-	locations := []string{
-		// Windows
-		`C:\Program Files\nodejs\node.exe`,
-		`C:\Program Files (x86)\nodejs\node.exe`,
-
-		// macOS (Homebrew)
-		"/usr/local/bin/node",
-		"/opt/homebrew/bin/node",
-
-		// Linux
-		"/usr/bin/node",
-		"/usr/local/bin/node",
-	}
-
-	// Add user-specific locations
-	if home != "" {
-		locations = append(locations,
-			filepath.Join(home, ".local", "bin", "node"),
-		)
-	}
-
-	return locations
 }
 
 // findNvmVersions scans nvm directory for installed versions
