@@ -575,25 +575,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 2. Check common installation locations
-	locations := getPythonInstallLocations()
-	for _, loc := range locations {
-		if _, err := os.Stat(loc); err == nil {
-			if version, err := getPythonVersion(loc); err == nil {
-				if !seen[loc] {
-					detected = append(detected, runtime.DetectedVersion{
-						Version:   version,
-						Path:      loc,
-						Source:    "system",
-						Validated: true,
-					})
-					seen[loc] = true
-				}
-			}
-		}
-	}
-
-	// 3. Check pyenv installations
+	// 2. Check pyenv installations
 	pyenvVersions := findPyenvVersions()
 	for _, dv := range pyenvVersions {
 		if !seen[dv.Path] {
@@ -622,49 +604,6 @@ func getPythonVersion(pythonPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("could not parse Python version from: %s", version)
-}
-
-// getPythonInstallLocations returns common Python installation paths
-func getPythonInstallLocations() []string {
-	home, _ := os.UserHomeDir()
-
-	locations := []string{
-		// Windows - check multiple Python versions
-		`C:\Python311\python.exe`,
-		`C:\Python310\python.exe`,
-		`C:\Python39\python.exe`,
-		`C:\Python38\python.exe`,
-		`C:\Python37\python.exe`,
-
-		// macOS (Homebrew and system)
-		"/usr/local/bin/python3",
-		"/opt/homebrew/bin/python3",
-		"/usr/bin/python3",
-
-		// Linux
-		"/usr/bin/python3",
-		"/usr/local/bin/python3",
-	}
-
-	// Windows - check LocalAppData\Programs\Python
-	if home != "" {
-		pythonLocalDir := filepath.Join(home, "AppData", "Local", "Programs", "Python")
-		if entries, err := os.ReadDir(pythonLocalDir); err == nil {
-			for _, entry := range entries {
-				if entry.IsDir() {
-					pythonExe := filepath.Join(pythonLocalDir, entry.Name(), "python.exe")
-					locations = append(locations, pythonExe)
-				}
-			}
-		}
-
-		// macOS/Linux user installs
-		locations = append(locations,
-			filepath.Join(home, ".local", "bin", "python3"),
-		)
-	}
-
-	return locations
 }
 
 // findPyenvVersions scans pyenv directory for installed versions

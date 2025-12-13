@@ -572,25 +572,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 2. Check common installation locations
-	locations := getRubyInstallLocations()
-	for _, loc := range locations {
-		if _, err := os.Stat(loc); err == nil {
-			if version, err := getRubyVersion(loc); err == nil {
-				if !seen[loc] {
-					detected = append(detected, runtime.DetectedVersion{
-						Version:   version,
-						Path:      loc,
-						Source:    "system",
-						Validated: true,
-					})
-					seen[loc] = true
-				}
-			}
-		}
-	}
-
-	// 3. Check rbenv installations
+	// 2. Check rbenv installations
 	rbenvVersions := findRbenvVersions()
 	for _, dv := range rbenvVersions {
 		if !seen[dv.Path] {
@@ -599,7 +581,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 4. Check rvm installations
+	// 3. Check rvm installations
 	rvmVersions := findRvmVersions()
 	for _, dv := range rvmVersions {
 		if !seen[dv.Path] {
@@ -608,7 +590,7 @@ func (p *Provider) DetectInstalled() ([]runtime.DetectedVersion, error) {
 		}
 	}
 
-	// 5. Check chruby installations
+	// 4. Check chruby installations
 	chrubyVersions := findChrubyVersions()
 	for _, dv := range chrubyVersions {
 		if !seen[dv.Path] {
@@ -637,37 +619,6 @@ func getRubyVersion(rubyPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("could not parse Ruby version from: %s", version)
-}
-
-// getRubyInstallLocations returns common Ruby installation paths
-func getRubyInstallLocations() []string {
-	home, _ := os.UserHomeDir()
-
-	locations := []string{
-		// Windows
-		`C:\Ruby33-x64\bin\ruby.exe`,
-		`C:\Ruby32-x64\bin\ruby.exe`,
-		`C:\Ruby31-x64\bin\ruby.exe`,
-		`C:\Ruby30-x64\bin\ruby.exe`,
-
-		// macOS (Homebrew and system)
-		"/usr/local/bin/ruby",
-		"/opt/homebrew/bin/ruby",
-		"/usr/bin/ruby",
-
-		// Linux
-		"/usr/bin/ruby",
-		"/usr/local/bin/ruby",
-	}
-
-	// Add user-specific locations
-	if home != "" {
-		locations = append(locations,
-			filepath.Join(home, ".local", "bin", "ruby"),
-		)
-	}
-
-	return locations
 }
 
 // findRbenvVersions scans rbenv directory for installed versions
