@@ -40,12 +40,19 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             ext: ""
+            # Use Python versions available in python-build-standalone for Linux
+            version1: "3.11.11"
+            version2: "3.12.8"
           - os: macos-latest
             platform: macos
             ext: ""
+            version1: "3.11.11"
+            version2: "3.12.8"
           - os: windows-latest
             platform: windows
             ext: ".exe"
+            version1: "3.11.11"
+            version2: "3.12.8"
     env:
       # Run tests from a directory outside the repo to avoid picking up .dtvem/runtimes.json
       TEST_WORKSPACE: ${{ github.workspace }}/../dtvem-test-workspace
@@ -97,26 +104,43 @@ jobs:
           cp ./dist/dtvem-shim${{ matrix.ext }} "$TEST_WORKSPACE/"
         shell: bash
 
-      - name: "List available versions"
+      - name: "List available versions and verify test versions exist"
         run: |
           cd "$TEST_WORKSPACE"
           echo "## Python Available Versions" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          ./dtvem${{ matrix.ext }} list-all python | head -20 >> $GITHUB_STEP_SUMMARY || true
+          AVAILABLE=$(./dtvem${{ matrix.ext }} list-all python)
+          echo "$AVAILABLE" | head -20 >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify test versions are available
+          echo "Verifying test versions are available..."
+          if ! echo "$AVAILABLE" | grep -q "${{ matrix.version1 }}"; then
+            echo "ERROR: Version ${{ matrix.version1 }} not found in available versions"
+            echo "Available versions:"
+            echo "$AVAILABLE"
+            exit 1
+          fi
+          if ! echo "$AVAILABLE" | grep -q "${{ matrix.version2 }}"; then
+            echo "ERROR: Version ${{ matrix.version2 }} not found in available versions"
+            echo "Available versions:"
+            echo "$AVAILABLE"
+            exit 1
+          fi
+          echo "✓ Both versions ${{ matrix.version1 }} and ${{ matrix.version2 }} are available"
         shell: bash
 
-      - name: "Install version ${{ inputs.version1 || '3.11.9' }}"
+      - name: "Install version ${{ matrix.version1 }}"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} install python ${{ inputs.version1 || '3.11.9' }}
+          ./dtvem${{ matrix.ext }} install python ${{ matrix.version1 }}
         shell: bash
 
-      - name: "Install version ${{ inputs.version2 || '3.12.7' }}"
+      - name: "Install version ${{ matrix.version2 }}"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} install python ${{ inputs.version2 || '3.12.7' }}
+          ./dtvem${{ matrix.ext }} install python ${{ matrix.version2 }}
         shell: bash
 
       - name: "List installed versions"
@@ -129,10 +153,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: "Set global version to ${{ inputs.version1 || '3.11.9' }}"
+      - name: "Set global version to ${{ matrix.version1 }}"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} global python ${{ inputs.version1 || '3.11.9' }}
+          ./dtvem${{ matrix.ext }} global python ${{ matrix.version1 }}
         shell: bash
 
       - name: "Verify global version via current"
@@ -140,8 +164,8 @@ jobs:
           cd "$TEST_WORKSPACE"
           CURRENT=$(./dtvem${{ matrix.ext }} current python --no-install)
           echo "Current python version: $CURRENT"
-          if [[ "$CURRENT" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
-            echo "ERROR: Expected ${{ inputs.version1 || '3.11.9' }} but got $CURRENT"
+          if [[ "$CURRENT" != *"${{ matrix.version1 }}"* ]]; then
+            echo "ERROR: Expected ${{ matrix.version1 }} but got $CURRENT"
             exit 1
           fi
         shell: bash
@@ -151,16 +175,16 @@ jobs:
           cd "$TEST_WORKSPACE"
           PYTHON_VERSION=$(python --version)
           echo "Python version from shim: $PYTHON_VERSION"
-          if [[ "$PYTHON_VERSION" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
-            echo "ERROR: Expected Python ${{ inputs.version1 || '3.11.9' }} but got $PYTHON_VERSION"
+          if [[ "$PYTHON_VERSION" != *"${{ matrix.version1 }}"* ]]; then
+            echo "ERROR: Expected Python ${{ matrix.version1 }} but got $PYTHON_VERSION"
             exit 1
           fi
         shell: bash
 
-      - name: "Switch global version to ${{ inputs.version2 || '3.12.7' }}"
+      - name: "Switch global version to ${{ matrix.version2 }}"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} global python ${{ inputs.version2 || '3.12.7' }}
+          ./dtvem${{ matrix.ext }} global python ${{ matrix.version2 }}
         shell: bash
 
       - name: "Verify version switched"
@@ -168,8 +192,8 @@ jobs:
           cd "$TEST_WORKSPACE"
           PYTHON_VERSION=$(python --version)
           echo "Python version from shim: $PYTHON_VERSION"
-          if [[ "$PYTHON_VERSION" != *"${{ inputs.version2 || '3.12.7' }}"* ]]; then
-            echo "ERROR: Expected Python ${{ inputs.version2 || '3.12.7' }} but got $PYTHON_VERSION"
+          if [[ "$PYTHON_VERSION" != *"${{ matrix.version2 }}"* ]]; then
+            echo "ERROR: Expected Python ${{ matrix.version2 }} but got $PYTHON_VERSION"
             exit 1
           fi
         shell: bash
@@ -179,17 +203,17 @@ jobs:
           cd "$TEST_WORKSPACE"
           mkdir -p test-project
           cd test-project
-          ../dtvem${{ matrix.ext }} local python ${{ inputs.version1 || '3.11.9' }}
+          ../dtvem${{ matrix.ext }} local python ${{ matrix.version1 }}
           CURRENT=$(../dtvem${{ matrix.ext }} current python --no-install)
           echo "Current python version in test-project: $CURRENT"
-          if [[ "$CURRENT" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
-            echo "ERROR: Local override failed. Expected ${{ inputs.version1 || '3.11.9' }} but got $CURRENT"
+          if [[ "$CURRENT" != *"${{ matrix.version1 }}"* ]]; then
+            echo "ERROR: Local override failed. Expected ${{ matrix.version1 }} but got $CURRENT"
             exit 1
           fi
           PYTHON_VERSION=$(python --version)
           echo "Python version from shim in test-project: $PYTHON_VERSION"
-          if [[ "$PYTHON_VERSION" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
-            echo "ERROR: Expected Python ${{ inputs.version1 || '3.11.9' }} but got $PYTHON_VERSION"
+          if [[ "$PYTHON_VERSION" != *"${{ matrix.version1 }}"* ]]; then
+            echo "ERROR: Expected Python ${{ matrix.version1 }} but got $PYTHON_VERSION"
             exit 1
           fi
         shell: bash
@@ -231,16 +255,16 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: "Switch global back to ${{ inputs.version1 || '3.11.9' }} before uninstall"
+      - name: "Switch global back to ${{ matrix.version1 }} before uninstall"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} global python ${{ inputs.version1 || '3.11.9' }}
+          ./dtvem${{ matrix.ext }} global python ${{ matrix.version1 }}
         shell: bash
 
-      - name: "Uninstall version ${{ inputs.version2 || '3.12.7' }}"
+      - name: "Uninstall version ${{ matrix.version2 }}"
         run: |
           cd "$TEST_WORKSPACE"
-          ./dtvem${{ matrix.ext }} uninstall python ${{ inputs.version2 || '3.12.7' }} --yes
+          ./dtvem${{ matrix.ext }} uninstall python ${{ matrix.version2 }} --yes
         shell: bash
 
       - name: "Verify uninstall"
@@ -249,8 +273,8 @@ jobs:
           LIST_OUTPUT=$(./dtvem${{ matrix.ext }} list python)
           echo "Installed versions after uninstall:"
           echo "$LIST_OUTPUT"
-          if [[ "$LIST_OUTPUT" == *"${{ inputs.version2 || '3.12.7' }}"* ]]; then
-            echo "ERROR: Version ${{ inputs.version2 || '3.12.7' }} should have been uninstalled"
+          if [[ "$LIST_OUTPUT" == *"${{ matrix.version2 }}"* ]]; then
+            echo "ERROR: Version ${{ matrix.version2 }} should have been uninstalled"
             exit 1
           fi
         shell: bash
