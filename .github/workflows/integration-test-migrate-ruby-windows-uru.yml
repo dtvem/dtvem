@@ -71,9 +71,11 @@ jobs:
           # Also add to current PATH (GITHUB_PATH only affects subsequent steps)
           $env:Path = "$uruDir;$env:Path"
 
-          # Initialize uru
+          # Initialize uru (must run from same directory as uru_rt.exe)
           Write-Host "Installing uru..."
-          uru_rt.exe admin install
+          Push-Location $uruDir
+          .\uru_rt.exe admin install
+          Pop-Location
 
           Write-Host "uru installed successfully"
 
