@@ -131,7 +131,7 @@ jobs:
       - name: "Verify global version via current"
         run: |
           cd "$TEST_WORKSPACE"
-          CURRENT=$(./dtvem${{ matrix.ext }} current python)
+          CURRENT=$(./dtvem${{ matrix.ext }} current python --no-install)
           echo "Current python version: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
             echo "ERROR: Expected ${{ inputs.version1 || '3.11.9' }} but got $CURRENT"
@@ -173,7 +173,7 @@ jobs:
           mkdir -p test-project
           cd test-project
           ../dtvem${{ matrix.ext }} local python ${{ inputs.version1 || '3.11.9' }}
-          CURRENT=$(../dtvem${{ matrix.ext }} current python)
+          CURRENT=$(../dtvem${{ matrix.ext }} current python --no-install)
           echo "Current python version in test-project: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '3.11.9' }}"* ]]; then
             echo "ERROR: Local override failed. Expected ${{ inputs.version1 || '3.11.9' }} but got $CURRENT"

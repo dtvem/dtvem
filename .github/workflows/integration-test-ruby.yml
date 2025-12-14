@@ -131,7 +131,7 @@ jobs:
       - name: "Verify global version via current"
         run: |
           cd "$TEST_WORKSPACE"
-          CURRENT=$(./dtvem${{ matrix.ext }} current ruby)
+          CURRENT=$(./dtvem${{ matrix.ext }} current ruby --no-install)
           echo "Current ruby version: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '3.3.6' }}"* ]]; then
             echo "ERROR: Expected ${{ inputs.version1 || '3.3.6' }} but got $CURRENT"
@@ -173,7 +173,7 @@ jobs:
           mkdir -p test-project
           cd test-project
           ../dtvem${{ matrix.ext }} local ruby ${{ inputs.version1 || '3.3.6' }}
-          CURRENT=$(../dtvem${{ matrix.ext }} current ruby)
+          CURRENT=$(../dtvem${{ matrix.ext }} current ruby --no-install)
           echo "Current ruby version in test-project: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '3.3.6' }}"* ]]; then
             echo "ERROR: Local override failed. Expected ${{ inputs.version1 || '3.3.6' }} but got $CURRENT"

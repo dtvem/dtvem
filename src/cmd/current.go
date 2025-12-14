@@ -9,6 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	currentYes       bool
+	currentNoInstall bool
+)
+
 // runtimeStatus holds the status of a configured runtime
 type runtimeStatus struct {
 	provider  runtime.Provider
@@ -29,15 +34,17 @@ Examples:
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			showAllVersions()
+			showAllVersions(currentYes, currentNoInstall)
 		} else {
-			showSingleVersion(args[0])
+			showSingleVersion(args[0], currentYes, currentNoInstall)
 		}
 	},
 }
 
-// showAllVersions displays all configured runtimes and prompts to install missing ones
-func showAllVersions() {
+// showAllVersions displays all configured runtimes and prompts to install missing ones.
+// If noInstall is true, install prompts are skipped entirely.
+// If yes is true, install prompts are auto-accepted.
+func showAllVersions(yes, noInstall bool) {
 	providers := runtime.GetAll()
 
 	if len(providers) == 0 {
@@ -82,10 +89,16 @@ func showAllVersions() {
 
 	fmt.Println(table.Render())
 
+	// Skip install prompts if --no-install flag is set
+	if noInstall {
+		return
+	}
+
 	// Prompt to install missing versions
 	if len(missing) > 0 {
 		fmt.Println()
-		if ui.PromptInstallMissing(missing) {
+		shouldInstall := yes || ui.PromptInstallMissing(missing)
+		if shouldInstall {
 			for _, rs := range missing {
 				ui.Info("Installing %s %s...", rs.provider.DisplayName(), rs.version)
 				if err := rs.provider.Install(rs.version); err != nil {
@@ -98,8 +111,10 @@ func showAllVersions() {
 	}
 }
 
-// showSingleVersion displays a single runtime version and prompts to install if missing
-func showSingleVersion(runtimeName string) {
+// showSingleVersion displays a single runtime version and prompts to install if missing.
+// If noInstall is true, install prompts are skipped entirely.
+// If yes is true, install prompts are auto-accepted.
+func showSingleVersion(runtimeName string, yes, noInstall bool) {
 	provider, err := runtime.Get(runtimeName)
 	if err != nil {
 		ui.Error("%v", err)
@@ -126,8 +141,14 @@ func showSingleVersion(runtimeName string) {
 	table.AddRow(provider.DisplayName(), version, tui.CrossMark+" not installed")
 	fmt.Println(table.Render())
 
+	// Skip install prompts if --no-install flag is set
+	if noInstall {
+		return
+	}
+
 	fmt.Println()
-	if ui.PromptInstall(provider.DisplayName(), version) {
+	shouldInstall := yes || ui.PromptInstall(provider.DisplayName(), version)
+	if shouldInstall {
 		if err := provider.Install(version); err != nil {
 			ui.Error("Failed to install %s %s: %v", provider.DisplayName(), version, err)
 			return
@@ -137,5 +158,7 @@ func showSingleVersion(runtimeName string) {
 }
 
 func init() {
+	currentCmd.Flags().BoolVarP(&currentYes, "yes", "y", false, "Automatically install missing versions without prompting")
+	currentCmd.Flags().BoolVarP(&currentNoInstall, "no-install", "n", false, "Skip install prompts entirely")
 	rootCmd.AddCommand(currentCmd)
 }

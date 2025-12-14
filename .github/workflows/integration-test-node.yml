@@ -131,7 +131,7 @@ jobs:
       - name: "Verify global version via current"
         run: |
           cd "$TEST_WORKSPACE"
-          CURRENT=$(./dtvem${{ matrix.ext }} current node)
+          CURRENT=$(./dtvem${{ matrix.ext }} current node --no-install)
           echo "Current node version: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '20.18.0' }}"* ]]; then
             echo "ERROR: Expected ${{ inputs.version1 || '20.18.0' }} but got $CURRENT"
@@ -173,7 +173,7 @@ jobs:
           mkdir -p test-project
           cd test-project
           ../dtvem${{ matrix.ext }} local node ${{ inputs.version1 || '20.18.0' }}
-          CURRENT=$(../dtvem${{ matrix.ext }} current node)
+          CURRENT=$(../dtvem${{ matrix.ext }} current node --no-install)
           echo "Current node version in test-project: $CURRENT"
           if [[ "$CURRENT" != *"${{ inputs.version1 || '20.18.0' }}"* ]]; then
             echo "ERROR: Local override failed. Expected ${{ inputs.version1 || '20.18.0' }} but got $CURRENT"
