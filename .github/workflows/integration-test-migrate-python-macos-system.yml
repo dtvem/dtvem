@@ -34,12 +34,19 @@ jobs:
           echo "$HOME/.dtvem/shims" >> $GITHUB_PATH
           echo "$HOME/.dtvem/bin" >> $GITHUB_PATH
 
-      - name: "Install Python 3.10 via Homebrew"
+      - name: "Set up Python 3.11.9 (available in python-build-standalone)"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+
+      - name: "Verify Python version"
+        id: detect-python
         run: |
-          brew install python@3.10
-          brew link --overwrite python@3.10
-          echo "System Python installed at: $(which python3.10)"
-          python3.10 --version
+          echo "System Python installed at: $(which python3)"
+          python3 --version
+          # Extract version for verification
+          VERSION=$(python3 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "PYTHON_VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: "Migrate system Python to dtvem"
         run: |
@@ -51,17 +58,24 @@ jobs:
           ./dist/dtvem list python
 
       - name: "Verify migrated version"
+        env:
+          EXPECTED_VERSION: ${{ steps.detect-python.outputs.PYTHON_VERSION }}
         run: |
-          ./dist/dtvem list python | grep -E "3\.10\." || (echo "ERROR: Expected Python 3.10.x to be migrated" && exit 1)
-          echo "SUCCESS: Python 3.10.x was migrated from system"
+          # Extract major.minor from detected version (e.g., "3.11" from "3.11.9")
+          MAJOR_MINOR=$(echo "$EXPECTED_VERSION" | cut -d. -f1,2)
+          echo "Looking for Python $MAJOR_MINOR.x"
+          ./dist/dtvem list python | grep -E "${MAJOR_MINOR}\." || (echo "ERROR: Expected Python ${MAJOR_MINOR}.x to be migrated" && exit 1)
+          echo "SUCCESS: Python ${MAJOR_MINOR}.x was migrated from system"
 
       - name: Generate summary
         if: always()
+        env:
+          EXPECTED_VERSION: ${{ steps.detect-python.outputs.PYTHON_VERSION }}
         run: |
           echo "## Python Migration from System (macOS)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Source:** Homebrew" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** 3.10.x" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:** actions/setup-python" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $EXPECTED_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installed Versions" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
