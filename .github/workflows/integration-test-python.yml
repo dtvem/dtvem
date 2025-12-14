@@ -40,19 +40,19 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             ext: ""
-            # Use Python versions available in astral-sh/python-build-standalone release 20251031
-            version1: "3.11.14"
-            version2: "3.12.12"
+            # Use Python versions available in both python.org and python-build-standalone (20240814)
+            version1: "3.11.9"
+            version2: "3.12.5"
           - os: macos-latest
             platform: macos
             ext: ""
-            version1: "3.11.14"
-            version2: "3.12.12"
+            version1: "3.11.9"
+            version2: "3.12.5"
           - os: windows-latest
             platform: windows
             ext: ".exe"
-            version1: "3.11.14"
-            version2: "3.12.12"
+            version1: "3.11.9"
+            version2: "3.12.5"
     env:
       # Run tests from a directory outside the repo to avoid picking up .dtvem/runtimes.json
       TEST_WORKSPACE: ${{ github.workspace }}/../dtvem-test-workspace

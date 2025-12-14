@@ -260,16 +260,16 @@ func (p *Provider) getStandaloneBuildURL(version, platform, arch string) (string
 
 	// python-build-standalone uses a build date in the version
 	// The project moved from indygreg to astral-sh
-	// Using a recent build date that includes Python 3.10, 3.11, 3.12, 3.13
-	buildDate := "20251031"
+	// Using release 20240814 which has versions also available on python.org (Windows)
+	buildDate := "20240814"
 
 	// Construct archive name
-	// Format: cpython-3.11.0+20251031-x86_64-unknown-linux-gnu-install_only.tar.gz
+	// Format: cpython-3.11.9+20240814-x86_64-unknown-linux-gnu-install_only.tar.gz
 	archiveName := fmt.Sprintf("cpython-%s+%s-%s-%s-install_only.tar.gz",
 		version, buildDate, pbsArch, pbsPlatform)
 
 	// Construct download URL
-	// https://github.com/astral-sh/python-build-standalone/releases/download/20251031/cpython-...tar.gz
+	// https://github.com/astral-sh/python-build-standalone/releases/download/20240814/cpython-...tar.gz
 	downloadURL := fmt.Sprintf("https://github.com/astral-sh/python-build-standalone/releases/download/%s/%s",
 		buildDate, archiveName)
 
