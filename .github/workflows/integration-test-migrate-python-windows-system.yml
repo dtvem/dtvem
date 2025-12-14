@@ -37,21 +37,21 @@ jobs:
           "$env:USERPROFILE\.dtvem\shims" | Out-File -FilePath $env:GITHUB_PATH -Append
           "$env:USERPROFILE\.dtvem\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-      - name: "Install Python 3.10 via Chocolatey"
+      - name: "Detect pre-installed Python version"
+        id: detect-python
         shell: pwsh
         run: |
-          choco install python310 -y
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-          Write-Host "System Python installed"
-          python --version
-
-      - name: "Add Chocolatey Python to PATH"
-        shell: pwsh
-        run: |
-          $pythonPath = "C:\Python310"
-          if (Test-Path $pythonPath) {
-            $pythonPath | Out-File -FilePath $env:GITHUB_PATH -Append
-            "$pythonPath\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # GitHub runners have Python pre-installed, use that version
+          $pythonVersion = python --version 2>&1
+          Write-Host "Pre-installed Python: $pythonVersion"
+          # Extract version number (e.g., "3.9.13" from "Python 3.9.13")
+          if ($pythonVersion -match "Python (\d+\.\d+\.\d+)") {
+            $version = $Matches[1]
+            Write-Host "Detected version: $version"
+            "PYTHON_VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Host "ERROR: Could not detect Python version"
+            exit 1
           }
 
       - name: "Migrate system Python to dtvem"
@@ -66,18 +66,25 @@ jobs:
 
       - name: "Verify migrated version"
         shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.detect-python.outputs.PYTHON_VERSION }}
         run: |
-          ./dist/dtvem.exe list python | grep -E "3\.10\." || (echo "ERROR: Expected Python 3.10.x to be migrated" && exit 1)
-          echo "SUCCESS: Python 3.10.x was migrated from system"
+          # Extract major.minor from detected version (e.g., "3.9" from "3.9.13")
+          MAJOR_MINOR=$(echo "$EXPECTED_VERSION" | cut -d. -f1,2)
+          echo "Looking for Python $MAJOR_MINOR.x"
+          ./dist/dtvem.exe list python | grep -E "${MAJOR_MINOR}\." || (echo "ERROR: Expected Python ${MAJOR_MINOR}.x to be migrated" && exit 1)
+          echo "SUCCESS: Python ${MAJOR_MINOR}.x was migrated from system"
 
       - name: Generate summary
         if: always()
         shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.detect-python.outputs.PYTHON_VERSION }}
         run: |
           echo "## Python Migration from System (Windows)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Source:** Chocolatey" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** 3.10.x" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:** Pre-installed (GitHub Runner)" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $EXPECTED_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installed Versions" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
