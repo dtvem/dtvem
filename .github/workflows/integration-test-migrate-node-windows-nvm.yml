@@ -41,17 +41,27 @@ jobs:
         shell: pwsh
         run: |
           choco install nvm -y
-          # Add nvm to GITHUB_PATH for subsequent steps
+          # Get nvm paths from machine environment (set by Chocolatey installer)
           $nvmHome = [System.Environment]::GetEnvironmentVariable("NVM_HOME", "Machine")
           if (-not $nvmHome) { $nvmHome = "C:\ProgramData\nvm" }
           $nvmSymlink = [System.Environment]::GetEnvironmentVariable("NVM_SYMLINK", "Machine")
           if (-not $nvmSymlink) { $nvmSymlink = "C:\Program Files\nodejs" }
+
+          # Export environment variables for subsequent steps
+          "NVM_HOME=$nvmHome" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "NVM_SYMLINK=$nvmSymlink" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+          # Add to PATH for subsequent steps
           "$nvmHome" | Out-File -FilePath $env:GITHUB_PATH -Append
           "$nvmSymlink" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+          Write-Host "NVM_HOME: $nvmHome"
+          Write-Host "NVM_SYMLINK: $nvmSymlink"
 
       - name: "Install Node.js 20.18.0 via nvm-windows"
         shell: pwsh
         run: |
+          Write-Host "PATH contains NVM_HOME: $($env:PATH -split ';' | Where-Object { $_ -like '*nvm*' })"
           nvm install 20.18.0
           nvm use 20.18.0
           Write-Host "nvm-windows Node.js version:"
