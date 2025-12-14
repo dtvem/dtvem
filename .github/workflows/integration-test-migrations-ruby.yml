@@ -1,0 +1,36 @@
+name: Integration Tests - Ruby Migrations
+
+on:
+  workflow_dispatch:
+    # Manual trigger for testing Ruby migrations only
+
+permissions:
+  contents: read
+
+jobs:
+  # Ubuntu
+  migrate-ruby-ubuntu-system:
+    name: System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-ruby-ubuntu-system.yml
+
+  migrate-ruby-ubuntu-rbenv:
+    name: rbenv (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-ruby-ubuntu-rbenv.yml
+
+  # macOS
+  migrate-ruby-macos-system:
+    name: System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-ruby-macos-system.yml
+
+  migrate-ruby-macos-rbenv:
+    name: rbenv (macOS)
+    uses: ./.github/workflows/integration-test-migrate-ruby-macos-rbenv.yml
+
+  # Windows
+  migrate-ruby-windows-system:
+    name: System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-ruby-windows-system.yml
+
+  migrate-ruby-windows-uru:
+    name: uru (Windows)
+    uses: ./.github/workflows/integration-test-migrate-ruby-windows-uru.yml

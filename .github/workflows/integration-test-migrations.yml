@@ -1,0 +1,90 @@
+name: Integration Tests - All Migrations
+
+on:
+  workflow_dispatch:
+    # Manual trigger for testing all migrations without runtime tests
+
+permissions:
+  contents: read
+
+jobs:
+  # ==========================================================================
+  # Node.js Migrations
+  # ==========================================================================
+  migrate-node-ubuntu-system:
+    name: Node.js - System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-node-ubuntu-system.yml
+
+  migrate-node-ubuntu-nvm:
+    name: Node.js - nvm (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-node-ubuntu-nvm.yml
+
+  migrate-node-macos-system:
+    name: Node.js - System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-node-macos-system.yml
+
+  migrate-node-macos-fnm:
+    name: Node.js - fnm (macOS)
+    uses: ./.github/workflows/integration-test-migrate-node-macos-fnm.yml
+
+  migrate-node-windows-system:
+    name: Node.js - System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-node-windows-system.yml
+
+  migrate-node-windows-nvm:
+    name: Node.js - nvm-windows (Windows)
+    uses: ./.github/workflows/integration-test-migrate-node-windows-nvm.yml
+
+  # ==========================================================================
+  # Python Migrations
+  # ==========================================================================
+  migrate-python-ubuntu-system:
+    name: Python - System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-python-ubuntu-system.yml
+
+  migrate-python-ubuntu-pyenv:
+    name: Python - pyenv (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-python-ubuntu-pyenv.yml
+
+  migrate-python-macos-system:
+    name: Python - System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-python-macos-system.yml
+
+  migrate-python-macos-pyenv:
+    name: Python - pyenv (macOS)
+    uses: ./.github/workflows/integration-test-migrate-python-macos-pyenv.yml
+
+  migrate-python-windows-system:
+    name: Python - System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-python-windows-system.yml
+
+  migrate-python-windows-pyenv:
+    name: Python - pyenv-win (Windows)
+    uses: ./.github/workflows/integration-test-migrate-python-windows-pyenv.yml
+
+  # ==========================================================================
+  # Ruby Migrations
+  # ==========================================================================
+  migrate-ruby-ubuntu-system:
+    name: Ruby - System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-ruby-ubuntu-system.yml
+
+  migrate-ruby-ubuntu-rbenv:
+    name: Ruby - rbenv (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-ruby-ubuntu-rbenv.yml
+
+  migrate-ruby-macos-system:
+    name: Ruby - System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-ruby-macos-system.yml
+
+  migrate-ruby-macos-rbenv:
+    name: Ruby - rbenv (macOS)
+    uses: ./.github/workflows/integration-test-migrate-ruby-macos-rbenv.yml
+
+  migrate-ruby-windows-system:
+    name: Ruby - System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-ruby-windows-system.yml
+
+  migrate-ruby-windows-uru:
+    name: Ruby - uru (Windows)
+    uses: ./.github/workflows/integration-test-migrate-ruby-windows-uru.yml
