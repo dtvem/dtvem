@@ -93,9 +93,9 @@ func TestShimsDir(t *testing.T) {
 		t.Error("ShimsDir() returned empty string")
 	}
 
-	// Should contain .dtvem
-	if !strings.Contains(result, ".dtvem") {
-		t.Errorf("ShimsDir() = %q, should contain '.dtvem'", result)
+	// Should contain 'dtvem' (either .dtvem or .local/share/dtvem on Linux)
+	if !strings.Contains(result, "dtvem") {
+		t.Errorf("ShimsDir() = %q, should contain 'dtvem'", result)
 	}
 
 	// Should end with 'shims'

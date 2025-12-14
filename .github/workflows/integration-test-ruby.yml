@@ -74,8 +74,14 @@ jobs:
       - name: Add shims to PATH (Unix)
         if: matrix.platform != 'windows'
         run: |
-          echo "$HOME/.dtvem/shims" >> $GITHUB_PATH
-          echo "$HOME/.dtvem/bin" >> $GITHUB_PATH
+          # Linux uses XDG path (~/.local/share/dtvem), macOS uses ~/.dtvem
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            DTVEM_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/dtvem"
+          else
+            DTVEM_ROOT="$HOME/.dtvem"
+          fi
+          echo "$DTVEM_ROOT/shims" >> $GITHUB_PATH
+          echo "$DTVEM_ROOT/bin" >> $GITHUB_PATH
 
       - name: Add shims to PATH (Windows)
         if: matrix.platform == 'windows'

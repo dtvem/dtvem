@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var uninstallYes bool
+
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall <runtime> <version>",
 	Short: "Uninstall a specific runtime version",
@@ -28,7 +30,8 @@ Safety features:
 
 Examples:
   dtvem uninstall python 3.11.0
-  dtvem uninstall node 18.16.0`,
+  dtvem uninstall node 18.16.0
+  dtvem uninstall node 18.16.0 --yes    # Skip confirmation prompt`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		runtimeName := args[0]
@@ -72,19 +75,21 @@ Examples:
 			ui.Info("You may need to update or remove it after uninstalling")
 		}
 
-		// Prompt for confirmation
-		fmt.Printf("\n")
-		ui.Warning("This will permanently delete:")
-		ui.Info("  %s", versionPath)
-		fmt.Printf("\nAre you sure you want to uninstall %s v%s? [y/N]: ", provider.DisplayName(), version)
+		// Prompt for confirmation (unless --yes flag is provided)
+		if !uninstallYes {
+			fmt.Printf("\n")
+			ui.Warning("This will permanently delete:")
+			ui.Info("  %s", versionPath)
+			fmt.Printf("\nAre you sure you want to uninstall %s v%s? [y/N]: ", provider.DisplayName(), version)
 
-		var response string
-		_, _ = fmt.Scanln(&response)
-		response = strings.ToLower(strings.TrimSpace(response))
+			var response string
+			_, _ = fmt.Scanln(&response)
+			response = strings.ToLower(strings.TrimSpace(response))
 
-		if response != constants.ResponseY && response != constants.ResponseYes {
-			ui.Info("Uninstall canceled")
-			return
+			if response != constants.ResponseY && response != constants.ResponseYes {
+				ui.Info("Uninstall canceled")
+				return
+			}
 		}
 
 		// Remove the version directory
@@ -121,5 +126,6 @@ Examples:
 }
 
 func init() {
+	uninstallCmd.Flags().BoolVarP(&uninstallYes, "yes", "y", false, "Skip confirmation prompt")
 	rootCmd.AddCommand(uninstallCmd)
 }

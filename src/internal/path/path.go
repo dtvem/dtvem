@@ -35,12 +35,29 @@ func IsInPath(dir string) bool {
 }
 
 // ShimsDir returns the path to the shims directory
-// This is a helper to avoid circular dependencies with config package
+// This replicates the root directory logic from config package to avoid circular dependencies.
+// Must stay in sync with config.getRootDir().
 func ShimsDir() string {
+	// Check for DTVEM_ROOT environment variable first (overrides all)
+	if root := os.Getenv("DTVEM_ROOT"); root != "" {
+		return filepath.Join(root, "shims")
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
+
+	// On Linux, respect XDG Base Directory specification
+	if runtime.GOOS == "linux" {
+		if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
+			return filepath.Join(xdgDataHome, "dtvem", "shims")
+		}
+		// XDG default: ~/.local/share
+		return filepath.Join(home, ".local", "share", "dtvem", "shims")
+	}
+
+	// On macOS and Windows, use ~/.dtvem
 	return filepath.Join(home, ".dtvem", "shims")
 }
 
