@@ -231,6 +231,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: "Switch global back to ${{ inputs.version1 || '3.3.6' }} before uninstall"
+        run: |
+          cd "$TEST_WORKSPACE"
+          ./dtvem${{ matrix.ext }} global ruby ${{ inputs.version1 || '3.3.6' }}
+        shell: bash
+
       - name: "Uninstall version ${{ inputs.version2 || '3.4.1' }}"
         run: |
           cd "$TEST_WORKSPACE"

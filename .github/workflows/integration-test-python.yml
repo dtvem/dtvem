@@ -231,6 +231,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: "Switch global back to ${{ inputs.version1 || '3.11.9' }} before uninstall"
+        run: |
+          cd "$TEST_WORKSPACE"
+          ./dtvem${{ matrix.ext }} global python ${{ inputs.version1 || '3.11.9' }}
+        shell: bash
+
       - name: "Uninstall version ${{ inputs.version2 || '3.12.7' }}"
         run: |
           cd "$TEST_WORKSPACE"

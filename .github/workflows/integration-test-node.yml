@@ -231,6 +231,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: "Switch global back to ${{ inputs.version1 || '20.18.0' }} before uninstall"
+        run: |
+          cd "$TEST_WORKSPACE"
+          ./dtvem${{ matrix.ext }} global node ${{ inputs.version1 || '20.18.0' }}
+        shell: bash
+
       - name: "Uninstall version ${{ inputs.version2 || '22.11.0' }}"
         run: |
           cd "$TEST_WORKSPACE"
