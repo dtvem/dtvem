@@ -1,0 +1,30 @@
+name: Integration Tests - Runtimes
+
+on:
+  workflow_dispatch:
+    # Manual trigger for testing runtime install/uninstall without migrations
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node.js
+    uses: ./.github/workflows/integration-test-node.yml
+    with:
+      version1: '20.18.0'
+      version2: '22.11.0'
+
+  python:
+    name: Python
+    uses: ./.github/workflows/integration-test-python.yml
+    with:
+      version1: '3.11.9'
+      version2: '3.12.7'
+
+  ruby:
+    name: Ruby
+    uses: ./.github/workflows/integration-test-ruby.yml
+    with:
+      version1: '3.3.6'
+      version2: '3.4.1'

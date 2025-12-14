@@ -1,0 +1,36 @@
+name: Integration Tests - Python Migrations
+
+on:
+  workflow_dispatch:
+    # Manual trigger for testing Python migrations only
+
+permissions:
+  contents: read
+
+jobs:
+  # Ubuntu
+  migrate-python-ubuntu-system:
+    name: System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-python-ubuntu-system.yml
+
+  migrate-python-ubuntu-pyenv:
+    name: pyenv (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-python-ubuntu-pyenv.yml
+
+  # macOS
+  migrate-python-macos-system:
+    name: System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-python-macos-system.yml
+
+  migrate-python-macos-pyenv:
+    name: pyenv (macOS)
+    uses: ./.github/workflows/integration-test-migrate-python-macos-pyenv.yml
+
+  # Windows
+  migrate-python-windows-system:
+    name: System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-python-windows-system.yml
+
+  migrate-python-windows-pyenv:
+    name: pyenv-win (Windows)
+    uses: ./.github/workflows/integration-test-migrate-python-windows-pyenv.yml

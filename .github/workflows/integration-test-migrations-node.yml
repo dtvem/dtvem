@@ -1,0 +1,36 @@
+name: Integration Tests - Node.js Migrations
+
+on:
+  workflow_dispatch:
+    # Manual trigger for testing Node.js migrations only
+
+permissions:
+  contents: read
+
+jobs:
+  # Ubuntu
+  migrate-node-ubuntu-system:
+    name: System (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-node-ubuntu-system.yml
+
+  migrate-node-ubuntu-nvm:
+    name: nvm (Ubuntu)
+    uses: ./.github/workflows/integration-test-migrate-node-ubuntu-nvm.yml
+
+  # macOS
+  migrate-node-macos-system:
+    name: System (macOS)
+    uses: ./.github/workflows/integration-test-migrate-node-macos-system.yml
+
+  migrate-node-macos-fnm:
+    name: fnm (macOS)
+    uses: ./.github/workflows/integration-test-migrate-node-macos-fnm.yml
+
+  # Windows
+  migrate-node-windows-system:
+    name: System (Windows)
+    uses: ./.github/workflows/integration-test-migrate-node-windows-system.yml
+
+  migrate-node-windows-nvm:
+    name: nvm-windows (Windows)
+    uses: ./.github/workflows/integration-test-migrate-node-windows-nvm.yml
