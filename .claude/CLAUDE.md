@@ -27,6 +27,7 @@ Guidance for Claude Code when working with the dtvem codebase.
 8. **Run validation before commits** - Run `npm run check` (format, lint, test) before committing and pushing
 9. **Working an issue** - When working an issue, always create a new branch from an updated main branch
 10. **Branch Names** - Always use the conventional commit `type` from the issue title as the first prefix, and the `scope` as the second, then a very short description, example `feat/ci/integration-tests`
+11. **Check branch status before pushing** - ALWAYS verify the remote tracking branch still exists before pushing. If a PR was merged/deleted, create a new branch from main instead of trying to push to the old one.
 ---
 
 ## Quick Reference

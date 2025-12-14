@@ -40,12 +40,29 @@ jobs:
       - name: "Install nvm-windows"
         shell: pwsh
         run: |
-          choco install nvm -y
-          # Get nvm paths from machine environment (set by Chocolatey installer)
-          $nvmHome = [System.Environment]::GetEnvironmentVariable("NVM_HOME", "Machine")
-          if (-not $nvmHome) { $nvmHome = "C:\ProgramData\nvm" }
-          $nvmSymlink = [System.Environment]::GetEnvironmentVariable("NVM_SYMLINK", "Machine")
-          if (-not $nvmSymlink) { $nvmSymlink = "C:\Program Files\nodejs" }
+          # Manual installation of nvm-windows (Chocolatey's async installer doesn't work in CI)
+          $nvmVersion = "1.2.2"
+          $nvmHome = "$env:USERPROFILE\AppData\Roaming\nvm"
+          $nvmSymlink = "$env:USERPROFILE\AppData\Roaming\nodejs"
+
+          # Create directories
+          New-Item -ItemType Directory -Force -Path $nvmHome | Out-Null
+          New-Item -ItemType Directory -Force -Path $nvmSymlink | Out-Null
+
+          # Download nvm-windows noinstall zip
+          $nvmZip = "$env:TEMP\nvm-noinstall.zip"
+          Invoke-WebRequest -Uri "https://github.com/coreybutler/nvm-windows/releases/download/$nvmVersion/nvm-noinstall.zip" -OutFile $nvmZip
+
+          # Extract to NVM_HOME
+          Expand-Archive -Path $nvmZip -DestinationPath $nvmHome -Force
+
+          # Create settings.txt
+          $settings = @"
+          root: $nvmHome
+          path: $nvmSymlink
+          proxy: none
+          "@
+          $settings | Out-File -FilePath "$nvmHome\settings.txt" -Encoding UTF8
 
           # Export environment variables for subsequent steps
           "NVM_HOME=$nvmHome" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -57,13 +74,15 @@ jobs:
 
           Write-Host "NVM_HOME: $nvmHome"
           Write-Host "NVM_SYMLINK: $nvmSymlink"
+          Write-Host "nvm.exe exists: $(Test-Path "$nvmHome\nvm.exe")"
 
       - name: "Install Node.js 20.18.0 via nvm-windows"
         shell: pwsh
         run: |
-          Write-Host "PATH contains NVM_HOME: $($env:PATH -split ';' | Where-Object { $_ -like '*nvm*' })"
-          nvm install 20.18.0
-          nvm use 20.18.0
+          Write-Host "NVM_HOME: $env:NVM_HOME"
+          Write-Host "nvm.exe path: $env:NVM_HOME\nvm.exe"
+          & "$env:NVM_HOME\nvm.exe" install 20.18.0
+          & "$env:NVM_HOME\nvm.exe" use 20.18.0
           Write-Host "nvm-windows Node.js version:"
           node --version
 
