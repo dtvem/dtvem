@@ -4,21 +4,17 @@ package python
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	goruntime "runtime"
-	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/dtvem/dtvem/src/internal/config"
 	"github.com/dtvem/dtvem/src/internal/constants"
 	"github.com/dtvem/dtvem/src/internal/download"
+	"github.com/dtvem/dtvem/src/internal/manifest"
 	"github.com/dtvem/dtvem/src/internal/runtime"
 	"github.com/dtvem/dtvem/src/internal/shim"
 	"github.com/dtvem/dtvem/src/internal/ui"
@@ -197,83 +193,24 @@ func (p *Provider) Install(version string) error {
 
 // getDownloadURL returns the download URL and archive name for a given version
 func (p *Provider) getDownloadURL(version string) (string, string, error) {
-	// Determine platform and architecture
-	platform := goruntime.GOOS
-	arch := goruntime.GOARCH
-
-	// Construct download URL based on platform
-	var archiveName string
-	var downloadURL string
-
-	switch platform {
-	case constants.OSWindows:
-		// Use embeddable package for Windows from python.org
-		// Format: python-3.11.0-embed-amd64.zip
-		var pythonArch string
-		if arch == constants.ArchAMD64 {
-			pythonArch = constants.ArchAMD64
-		} else if arch == constants.ArchARM64 {
-			pythonArch = constants.ArchARM64
-		} else {
-			return "", "", fmt.Errorf("unsupported Windows architecture: %s", arch)
-		}
-		archiveName = fmt.Sprintf("python-%s-embed-%s.zip", version, pythonArch)
-		downloadURL = fmt.Sprintf("https://www.python.org/ftp/python/%s/%s", version, archiveName)
-
-	case "darwin", "linux":
-		// Use python-build-standalone for Unix platforms
-		// These are prebuilt Python binaries used by pyenv and other tools
-		return p.getStandaloneBuildURL(version, platform, arch)
-
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s", platform)
+	// Get the manifest
+	source := manifest.NewEmbeddedSource()
+	m, err := source.GetManifest("python")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	return downloadURL, archiveName, nil
-}
-
-// getStandaloneBuildURL constructs URL for python-build-standalone releases
-func (p *Provider) getStandaloneBuildURL(version, platform, arch string) (string, string, error) {
-	// Map Go platform/arch to python-build-standalone naming
-	var pbsPlatform string
-	var pbsArch string
-
-	// Map architecture
-	switch arch {
-	case "amd64":
-		pbsArch = "x86_64"
-	case "arm64":
-		pbsArch = "aarch64"
-	default:
-		return "", "", fmt.Errorf("unsupported architecture for %s: %s", platform, arch)
+	// Get the download info for this version and platform
+	platform := manifest.CurrentPlatform()
+	dl := m.GetDownload(version, platform)
+	if dl == nil {
+		return "", "", fmt.Errorf("Python %s is not available for %s", version, platform)
 	}
 
-	// Map platform
-	switch platform {
-	case "darwin":
-		pbsPlatform = "apple-darwin"
-	case "linux":
-		pbsPlatform = "unknown-linux-gnu"
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s", platform)
-	}
+	// Extract archive name from URL
+	archiveName := filepath.Base(dl.URL)
 
-	// python-build-standalone uses a build date in the version
-	// The project moved from indygreg to astral-sh
-	// Using release 20240814 which has versions also available on python.org (Windows)
-	buildDate := "20240814"
-
-	// Construct archive name
-	// Format: cpython-3.11.9+20240814-x86_64-unknown-linux-gnu-install_only.tar.gz
-	archiveName := fmt.Sprintf("cpython-%s+%s-%s-%s-install_only.tar.gz",
-		version, buildDate, pbsArch, pbsPlatform)
-
-	// Construct download URL
-	// https://github.com/astral-sh/python-build-standalone/releases/download/20240814/cpython-...tar.gz
-	downloadURL := fmt.Sprintf("https://github.com/astral-sh/python-build-standalone/releases/download/%s/%s",
-		buildDate, archiveName)
-
-	return downloadURL, archiveName, nil
+	return dl.URL, archiveName, nil
 }
 
 // createShims creates shims for Python executables
@@ -411,70 +348,30 @@ func (p *Provider) ListInstalled() ([]runtime.InstalledVersion, error) {
 	return versions, nil
 }
 
-// ListAvailable returns all available Python versions from python.org
+// ListAvailable returns all available Python versions
 func (p *Provider) ListAvailable() ([]runtime.AvailableVersion, error) {
-	// Fetch directory listing from python.org FTP
-	url := "https://www.python.org/ftp/python/"
-
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-	}
-
-	resp, err := client.Get(url)
+	// Get the manifest
+	source := manifest.NewEmbeddedSource()
+	m, err := source.GetManifest("python")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch version list: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch version list: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	// Read the HTML body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
+	// Get versions available for current platform
+	platform := manifest.CurrentPlatform()
+	versionStrings := m.ListAvailableVersions(platform)
 
-	// Extract version numbers from directory listing
-	// Directory names look like: 3.11.0/, 3.12.0/, etc.
-	versionRegex := regexp.MustCompile(`>(\d+\.\d+\.\d+)/<`)
-	matches := versionRegex.FindAllStringSubmatch(string(body), -1)
-
-	versionMap := make(map[string]bool)
-	for _, match := range matches {
-		if len(match) > 1 {
-			version := match[1]
-			// Only include Python 3.x versions
-			if strings.HasPrefix(version, "3.") {
-				versionMap[version] = true
-			}
-		}
-	}
-
-	// Convert map to sorted slice
-	var versionStrings []string
-	for version := range versionMap {
-		versionStrings = append(versionStrings, version)
-	}
-
-	// Sort versions in descending order (newest first)
-	sort.Slice(versionStrings, func(i, j int) bool {
-		return versionStrings[i] > versionStrings[j]
-	})
-
-	// Convert to AvailableVersion format
+	// Convert to AvailableVersion format and sort by semantic version (newest first)
 	versions := make([]runtime.AvailableVersion, 0, len(versionStrings))
-	for i, v := range versionStrings {
-		notes := ""
-		if i == 0 {
-			notes = "Latest"
-		}
+	for _, v := range versionStrings {
 		versions = append(versions, runtime.AvailableVersion{
 			Version: runtime.NewVersion(v),
-			Notes:   notes,
+			Notes:   "",
 		})
 	}
+
+	// Sort by version descending (newest first)
+	runtime.SortVersionsDesc(versions)
 
 	return versions, nil
 }

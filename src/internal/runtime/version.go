@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -76,5 +78,63 @@ func ParseVersions(versions []string) []Version {
 	for i, v := range versions {
 		result[i] = NewVersion(strings.TrimSpace(v))
 	}
+	return result
+}
+
+// SortVersionsDesc sorts AvailableVersions by semantic version in descending order (newest first).
+func SortVersionsDesc(versions []AvailableVersion) {
+	sort.Slice(versions, func(i, j int) bool {
+		return compareVersionStrings(versions[i].Version.Raw, versions[j].Version.Raw) > 0
+	})
+}
+
+// compareVersionStrings compares two version strings semantically.
+// Returns >0 if a > b, <0 if a < b, 0 if equal.
+func compareVersionStrings(a, b string) int {
+	aParts := parseVersionParts(a)
+	bParts := parseVersionParts(b)
+
+	// Compare each part
+	maxLen := len(aParts)
+	if len(bParts) > maxLen {
+		maxLen = len(bParts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var aVal, bVal int
+		if i < len(aParts) {
+			aVal = aParts[i]
+		}
+		if i < len(bParts) {
+			bVal = bParts[i]
+		}
+
+		if aVal != bVal {
+			return aVal - bVal
+		}
+	}
+
+	return 0
+}
+
+// parseVersionParts splits a version string into numeric parts.
+// For example, "3.11.0" becomes [3, 11, 0].
+func parseVersionParts(version string) []int {
+	// Remove common prefixes
+	version = strings.TrimPrefix(version, "v")
+
+	// Split by dots and dashes
+	parts := strings.FieldsFunc(version, func(c rune) bool {
+		return c == '.' || c == '-'
+	})
+
+	var result []int
+	for _, part := range parts {
+		// Try to parse as integer, skip non-numeric parts
+		if val, err := strconv.Atoi(part); err == nil {
+			result = append(result, val)
+		}
+	}
+
 	return result
 }
