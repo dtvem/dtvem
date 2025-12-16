@@ -1,0 +1,70 @@
+name: Mirror Sync
+
+on:
+  # Run after manifest updates are deployed
+  workflow_run:
+    workflows: ["Deploy Manifests"]
+    types:
+      - completed
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: 'Runtime to sync (node, python, ruby, or all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - node
+          - python
+          - ruby
+
+jobs:
+  sync:
+    name: Sync ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 120  # 2 hours max for sync
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: ${{ (github.event_name == 'workflow_dispatch' && inputs.runtime == 'all') && fromJson('["node", "python", "ruby"]') || (github.event_name == 'workflow_dispatch' && fromJson(format('["{0}"]', inputs.runtime))) || fromJson('["node", "python", "ruby"]') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build mirror tool
+        run: |
+          cd scripts/mirror-binaries
+          go build -o mirror-binaries .
+
+      - name: Sync new binaries
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUILDS_BUCKET }}
+          R2_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          R2_SECRET_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          ./scripts/mirror-binaries/mirror-binaries \
+            --runtime=${{ matrix.runtime }} \
+            --manifest-dir=src/internal/manifest/data \
+            --r2-endpoint="$R2_ENDPOINT" \
+            --r2-bucket="$R2_BUCKET" \
+            --r2-access-key="$R2_ACCESS_KEY" \
+            --r2-secret-key="$R2_SECRET_KEY" \
+            --sync-only \
+            --workers=10
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## Sync Results for ${{ matrix.runtime }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Synced new binaries not already present in R2." >> $GITHUB_STEP_SUMMARY
