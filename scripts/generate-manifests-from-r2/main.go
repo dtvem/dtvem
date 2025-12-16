@@ -36,6 +36,7 @@ type ManifestDownload struct {
 
 // Manifest represents the output manifest structure
 type Manifest struct {
+	Version  int                                      `json:"version"`
 	Versions map[string]map[string]*ManifestDownload `json:"versions"`
 }
 
@@ -138,6 +139,7 @@ func createS3Client() (*s3.Client, error) {
 
 func generateManifest(client *s3.Client, runtime string) (*Manifest, error) {
 	manifest := &Manifest{
+		Version:  1,
 		Versions: make(map[string]map[string]*ManifestDownload),
 	}
 
@@ -259,6 +261,7 @@ func getExtension(url string) string {
 func writeManifest(manifest *Manifest, path string) error {
 	// Sort versions for consistent output
 	sortedManifest := &Manifest{
+		Version:  manifest.Version,
 		Versions: make(map[string]map[string]*ManifestDownload),
 	}
 
