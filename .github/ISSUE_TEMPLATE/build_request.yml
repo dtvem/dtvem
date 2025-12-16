@@ -1,0 +1,75 @@
+name: Build Request
+description: Request a pre-built binary for a runtime version that is not currently available
+title: "build({runtime}): {version} {platform}"
+labels: ["build-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Thanks for requesting a build!** This form helps us provide pre-built binaries for runtime versions that aren't currently available.
+
+        **Tip:** You can also use `dtvem request <runtime> <version>` to open this form with pre-filled values.
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Which runtime do you need?
+      options:
+        - python
+        - node
+        - ruby
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version do you need?
+      placeholder: "e.g., 3.6.15, 2.7.8, 18.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: What platform do you need the build for?
+      options:
+        - windows-amd64
+        - windows-arm64
+        - darwin-amd64
+        - darwin-arm64
+        - linux-amd64
+        - linux-arm64
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Why do you need this specific version? (optional, but helps us prioritize)
+      placeholder: |
+        e.g., "Legacy project requires Python 3.6 compatibility"
+        e.g., "Testing backward compatibility with older Node.js versions"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this request, you agree to follow our [Code of Conduct](https://github.com/dtvem/dtvem/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

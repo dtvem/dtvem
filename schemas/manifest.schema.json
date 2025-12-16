@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/dtvem/dtvem/main/schemas/manifest.schema.json",
+  "title": "dtvem Runtime Manifest",
+  "description": "Manifest file containing available versions and download URLs for a runtime",
+  "type": "object",
+  "required": ["version", "versions"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Manifest format version (currently 1)"
+    },
+    "versions": {
+      "type": "object",
+      "description": "Map of version strings to platform availability",
+      "additionalProperties": {
+        "$ref": "#/$defs/platformMap"
+      }
+    }
+  },
+  "$defs": {
+    "platformMap": {
+      "type": "object",
+      "description": "Map of platform keys to download info or null (unavailable)",
+      "propertyNames": {
+        "enum": [
+          "windows-amd64",
+          "windows-arm64",
+          "windows-386",
+          "darwin-amd64",
+          "darwin-arm64",
+          "linux-amd64",
+          "linux-arm64",
+          "linux-arm",
+          "linux-386"
+        ]
+      },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/download" },
+          { "type": "null" }
+        ]
+      }
+    },
+    "download": {
+      "type": "object",
+      "description": "Download information for a pre-built binary",
+      "required": ["url", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Direct download URL for the binary archive"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$",
+          "description": "SHA256 checksum (64 hex characters)"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "versions": {
+        "3.13.1": {
+          "windows-amd64": {
+            "url": "https://www.python.org/ftp/python/3.13.1/python-3.13.1-embed-amd64.zip",
+            "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+          },
+          "darwin-arm64": null,
+          "linux-amd64": {
+            "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20251209/cpython-3.13.1.tar.gz",
+            "sha256": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+          }
+        }
+      }
+    }
+  ]
+}

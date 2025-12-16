@@ -4,7 +4,6 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"github.com/dtvem/dtvem/src/internal/config"
 	"github.com/dtvem/dtvem/src/internal/constants"
 	"github.com/dtvem/dtvem/src/internal/download"
+	"github.com/dtvem/dtvem/src/internal/manifest"
 	"github.com/dtvem/dtvem/src/internal/runtime"
 	"github.com/dtvem/dtvem/src/internal/shim"
 	"github.com/dtvem/dtvem/src/internal/ui"
@@ -133,41 +133,23 @@ func (p *Provider) Install(version string) error {
 
 // getDownloadURL returns the download URL and archive name for a given version
 func (p *Provider) getDownloadURL(version string) (string, string, error) {
-	// Determine platform and architecture
-	platform := goruntime.GOOS
-	arch := goruntime.GOARCH
-
-	// Map Go arch to Node.js arch naming
-	nodeArch := arch
-	if arch == constants.ArchAMD64 {
-		nodeArch = "x64"
-	} else if arch != constants.ArchARM64 {
-		// arm64 is already correct, anything else is unsupported
-		return "", "", fmt.Errorf("unsupported architecture: %s", arch)
+	// Get the manifest (uses cached remote with embedded fallback)
+	m, err := manifest.DefaultSource().GetManifest("node")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	// Construct download URL based on platform
-	var archiveName string
-	var downloadURL string
-
-	switch platform {
-	case constants.OSWindows:
-		archiveName = fmt.Sprintf("node-v%s-win-%s.zip", version, nodeArch)
-		downloadURL = fmt.Sprintf("https://nodejs.org/dist/v%s/%s", version, archiveName)
-
-	case "darwin":
-		archiveName = fmt.Sprintf("node-v%s-darwin-%s.tar.gz", version, nodeArch)
-		downloadURL = fmt.Sprintf("https://nodejs.org/dist/v%s/%s", version, archiveName)
-
-	case "linux":
-		archiveName = fmt.Sprintf("node-v%s-linux-%s.tar.gz", version, nodeArch)
-		downloadURL = fmt.Sprintf("https://nodejs.org/dist/v%s/%s", version, archiveName)
-
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s", platform)
+	// Get the download info for this version and platform
+	platform := manifest.CurrentPlatform()
+	dl := m.GetDownload(version, platform)
+	if dl == nil {
+		return "", "", fmt.Errorf("Node.js %s is not available for %s", version, platform)
 	}
 
-	return downloadURL, archiveName, nil
+	// Extract archive name from URL
+	archiveName := filepath.Base(dl.URL)
+
+	return dl.URL, archiveName, nil
 }
 
 // createShims creates shims for Node.js executables
@@ -223,45 +205,27 @@ func (p *Provider) ListInstalled() ([]runtime.InstalledVersion, error) {
 
 // ListAvailable returns all available Node.js versions
 func (p *Provider) ListAvailable() ([]runtime.AvailableVersion, error) {
-	// Fetch version index from nodejs.org
-	resp, err := http.Get("https://nodejs.org/dist/index.json")
+	// Get the manifest (uses cached remote with embedded fallback)
+	m, err := manifest.DefaultSource().GetManifest("node")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch version list: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch version list: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	// Parse JSON response
-	var nodeVersions []struct {
-		Version string      `json:"version"`
-		Date    string      `json:"date"`
-		LTS     interface{} `json:"lts"` // Can be false or a string like "Hydrogen"
-	}
+	// Get versions available for current platform
+	platform := manifest.CurrentPlatform()
+	versionStrings := m.ListAvailableVersions(platform)
 
-	if err := json.NewDecoder(resp.Body).Decode(&nodeVersions); err != nil {
-		return nil, fmt.Errorf("failed to parse version list: %w", err)
-	}
-
-	// Convert to AvailableVersion format
-	versions := make([]runtime.AvailableVersion, 0, len(nodeVersions))
-	for _, v := range nodeVersions {
-		// Strip 'v' prefix from version
-		version := strings.TrimPrefix(v.Version, "v")
-
-		// Add notes for LTS versions
-		notes := ""
-		if ltsName, ok := v.LTS.(string); ok && ltsName != "" {
-			notes = fmt.Sprintf("LTS: %s", ltsName)
-		}
-
+	// Convert to AvailableVersion format and sort by semantic version (newest first)
+	versions := make([]runtime.AvailableVersion, 0, len(versionStrings))
+	for _, v := range versionStrings {
 		versions = append(versions, runtime.AvailableVersion{
-			Version: runtime.NewVersion(version),
-			Notes:   notes,
+			Version: runtime.NewVersion(v),
+			Notes:   "",
 		})
 	}
+
+	// Sort by version descending (newest first)
+	runtime.SortVersionsDesc(versions)
 
 	return versions, nil
 }

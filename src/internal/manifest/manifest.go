@@ -1,0 +1,109 @@
+// Package manifest provides types and utilities for managing runtime version manifests.
+// Manifests contain version information and download URLs for pre-built runtime binaries.
+package manifest
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// Manifest represents a runtime's version manifest containing all available versions
+// and their download information per platform.
+type Manifest struct {
+	// Version is the manifest format version (currently 1)
+	Version int `json:"version"`
+
+	// Versions maps version strings to platform availability
+	// e.g., "3.13.1" -> {"windows-amd64": {URL, SHA256}, "darwin-arm64": false}
+	Versions map[string]map[string]*Download `json:"versions"`
+}
+
+// Download contains the URL and checksum for a downloadable binary.
+// A nil Download in the manifest indicates the version exists but has no pre-built
+// binary for that platform.
+type Download struct {
+	// URL is the direct download URL for the binary archive
+	URL string `json:"url"`
+
+	// SHA256 is the hex-encoded SHA256 checksum for verification
+	SHA256 string `json:"sha256"`
+}
+
+// Availability represents whether a version is available for a platform.
+type Availability int
+
+const (
+	// AvailabilityUnknown means the version wasn't found in the manifest.
+	AvailabilityUnknown Availability = iota
+
+	// AvailabilityAvailable means a pre-built binary exists for download.
+	AvailabilityAvailable
+
+	// AvailabilityUnavailable means the version exists but no pre-built binary is available.
+	// Users can request a build via `dtvem request`.
+	AvailabilityUnavailable
+)
+
+// GetDownload returns the download info for a specific version and platform.
+// Returns nil if the version doesn't exist or has no pre-built for the platform.
+func (m *Manifest) GetDownload(version, platform string) *Download {
+	platforms, ok := m.Versions[version]
+	if !ok {
+		return nil
+	}
+	return platforms[platform]
+}
+
+// CheckAvailability returns the availability status for a version on a platform.
+func (m *Manifest) CheckAvailability(version, platform string) Availability {
+	platforms, ok := m.Versions[version]
+	if !ok {
+		return AvailabilityUnknown
+	}
+
+	download, exists := platforms[platform]
+	if !exists {
+		return AvailabilityUnknown
+	}
+
+	if download == nil {
+		return AvailabilityUnavailable
+	}
+
+	return AvailabilityAvailable
+}
+
+// ListVersions returns all version strings in the manifest.
+// The order is not guaranteed.
+func (m *Manifest) ListVersions() []string {
+	versions := make([]string, 0, len(m.Versions))
+	for v := range m.Versions {
+		versions = append(versions, v)
+	}
+	return versions
+}
+
+// ListAvailableVersions returns versions that have pre-built binaries for the given platform.
+func (m *Manifest) ListAvailableVersions(platform string) []string {
+	var versions []string
+	for v, platforms := range m.Versions {
+		if download, ok := platforms[platform]; ok && download != nil {
+			versions = append(versions, v)
+		}
+	}
+	return versions
+}
+
+// ParseManifest parses JSON data into a Manifest.
+func ParseManifest(data []byte) (*Manifest, error) {
+	var m Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	if m.Version != 1 {
+		return nil, fmt.Errorf("unsupported manifest version: %d", m.Version)
+	}
+
+	return &m, nil
+}

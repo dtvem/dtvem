@@ -2,21 +2,18 @@
 package ruby
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	goruntime "runtime"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/dtvem/dtvem/src/internal/config"
 	"github.com/dtvem/dtvem/src/internal/constants"
 	"github.com/dtvem/dtvem/src/internal/download"
+	"github.com/dtvem/dtvem/src/internal/manifest"
 	"github.com/dtvem/dtvem/src/internal/runtime"
 	"github.com/dtvem/dtvem/src/internal/shim"
 	"github.com/dtvem/dtvem/src/internal/ui"
@@ -215,84 +212,23 @@ func (p *Provider) determineSourceDir(extractDir string) string {
 
 // getDownloadURL returns the download URL and archive name for a given version
 func (p *Provider) getDownloadURL(version string) (string, string, error) {
-	platform := goruntime.GOOS
-	arch := goruntime.GOARCH
-
-	switch platform {
-	case constants.OSWindows:
-		return p.getRubyInstallerURL(version, arch)
-	case constants.OSDarwin, constants.OSLinux:
-		return p.getRubyBuildURL(version, platform, arch)
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s", platform)
-	}
-}
-
-// getRubyInstallerURL constructs URL for RubyInstaller on Windows
-func (p *Provider) getRubyInstallerURL(version, arch string) (string, string, error) {
-	// RubyInstaller provides prebuilt Windows binaries
-	// We use the .exe installer and run it in silent mode with custom directory
-
-	// Map Go arch to RubyInstaller arch
-	var rubyArch string
-	if arch == constants.ArchAMD64 {
-		rubyArch = "x64"
-	} else if arch == constants.Arch386 {
-		rubyArch = "x86"
-	} else {
-		return "", "", fmt.Errorf("unsupported Windows architecture: %s", arch)
+	// Get the manifest (uses cached remote with embedded fallback)
+	m, err := manifest.DefaultSource().GetManifest("ruby")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	// RubyInstaller uses a patch version like -1, -2, etc.
-	archiveName := fmt.Sprintf("rubyinstaller-%s-1-%s.exe", version, rubyArch)
-	downloadURL := fmt.Sprintf("https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-%s-1/%s",
-		version, archiveName)
-
-	return downloadURL, archiveName, nil
-}
-
-// getRubyBuildURL constructs URL for ruby-builder releases
-func (p *Provider) getRubyBuildURL(version, platform, arch string) (string, string, error) {
-	// Use ruby-builder releases from ruby/ruby-builder (GitHub Actions)
-	// These provide prebuilt Ruby binaries
-	//
-	// Naming patterns:
-	// - Ubuntu x64:    ruby-X.X.X-ubuntu-22.04.tar.gz (no arch suffix)
-	// - Ubuntu arm64:  ruby-X.X.X-ubuntu-22.04-arm64.tar.gz
-	// - macOS x64:     ruby-X.X.X-macos-latest.tar.gz (no arch suffix)
-	// - macOS arm64:   ruby-X.X.X-macos-13-arm64.tar.gz
-
-	var archiveName string
-
-	switch platform {
-	case constants.OSDarwin:
-		if arch == constants.ArchARM64 {
-			// macOS arm64: ruby-3.3.6-macos-13-arm64.tar.gz
-			archiveName = fmt.Sprintf("ruby-%s-macos-13-arm64.tar.gz", version)
-		} else if arch == constants.ArchAMD64 {
-			// macOS x64: ruby-3.3.6-macos-latest.tar.gz
-			archiveName = fmt.Sprintf("ruby-%s-macos-latest.tar.gz", version)
-		} else {
-			return "", "", fmt.Errorf("unsupported architecture for %s: %s", platform, arch)
-		}
-	case constants.OSLinux:
-		if arch == constants.ArchARM64 {
-			// Ubuntu arm64: ruby-3.3.6-ubuntu-22.04-arm64.tar.gz
-			archiveName = fmt.Sprintf("ruby-%s-ubuntu-22.04-arm64.tar.gz", version)
-		} else if arch == constants.ArchAMD64 {
-			// Ubuntu x64: ruby-3.3.6-ubuntu-22.04.tar.gz (no arch suffix)
-			archiveName = fmt.Sprintf("ruby-%s-ubuntu-22.04.tar.gz", version)
-		} else {
-			return "", "", fmt.Errorf("unsupported architecture for %s: %s", platform, arch)
-		}
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s", platform)
+	// Get the download info for this version and platform
+	platform := manifest.CurrentPlatform()
+	dl := m.GetDownload(version, platform)
+	if dl == nil {
+		return "", "", fmt.Errorf("Ruby %s is not available for %s", version, platform)
 	}
 
-	// Download from ruby-builder releases using toolcache tag
-	downloadURL := fmt.Sprintf("https://github.com/ruby/ruby-builder/releases/download/toolcache/%s", archiveName)
+	// Extract archive name from URL
+	archiveName := filepath.Base(dl.URL)
 
-	return downloadURL, archiveName, nil
+	return dl.URL, archiveName, nil
 }
 
 // createShims creates shims for Ruby executables
@@ -345,146 +281,31 @@ func (p *Provider) ListInstalled() ([]runtime.InstalledVersion, error) {
 	return versions, nil
 }
 
-// ghRelease represents a GitHub release from the API
-type ghRelease struct {
-	TagName string `json:"tag_name"`
-	Assets  []struct {
-		Name string `json:"name"`
-	} `json:"assets"`
-}
-
 // ListAvailable returns all available Ruby versions
 func (p *Provider) ListAvailable() ([]runtime.AvailableVersion, error) {
-	// On Windows, use RubyInstaller releases
-	// On macOS/Linux, use ruby-builder releases
-	if goruntime.GOOS == constants.OSWindows {
-		return p.listAvailableWindows()
-	}
-	return p.listAvailableUnix()
-}
-
-// listAvailableWindows fetches available versions from RubyInstaller
-func (p *Provider) listAvailableWindows() ([]runtime.AvailableVersion, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	// Get RubyInstaller releases
-	url := "https://api.github.com/repos/oneclick/rubyinstaller2/releases"
-	req, err := http.NewRequest("GET", url, nil)
+	// Get the manifest (uses cached remote with embedded fallback)
+	m, err := manifest.DefaultSource().GetManifest("ruby")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "dtvem")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch version list: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch version list: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
 	}
 
-	// Parse JSON response - array of releases
-	var releases []ghRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("failed to parse version list: %w", err)
-	}
+	// Get versions available for current platform
+	platform := manifest.CurrentPlatform()
+	versionStrings := m.ListAvailableVersions(platform)
 
-	// Extract versions from tag names
-	// Format: RubyInstaller-3.3.10-1
-	versionMap := make(map[string]bool)
-	versionRegex := regexp.MustCompile(`^RubyInstaller-(\d+\.\d+\.\d+)-\d+$`)
-
-	for _, release := range releases {
-		if matches := versionRegex.FindStringSubmatch(release.TagName); len(matches) > 1 {
-			version := matches[1]
-			versionMap[version] = true
-		}
-	}
-
-	return p.versionsMapToSlice(versionMap), nil
-}
-
-// listAvailableUnix fetches available versions from ruby-builder
-func (p *Provider) listAvailableUnix() ([]runtime.AvailableVersion, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	// Get the toolcache release which contains all Ruby builds
-	url := "https://api.github.com/repos/ruby/ruby-builder/releases/tags/toolcache"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "dtvem")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch version list: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch version list: HTTP %d", resp.StatusCode)
-	}
-
-	// Parse JSON response
-	var release ghRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to parse version list: %w", err)
-	}
-
-	// Extract unique versions from asset names
-	// Format: ruby-3.4.7-ubuntu-22.04-x64.tar.gz
-	versionMap := make(map[string]bool)
-	versionRegex := regexp.MustCompile(`^ruby-(\d+\.\d+\.\d+)-`)
-
-	for _, asset := range release.Assets {
-		if matches := versionRegex.FindStringSubmatch(asset.Name); len(matches) > 1 {
-			version := matches[1]
-			// Only include Ruby 2.7+ and 3.x versions (older versions may not have prebuilts)
-			if strings.HasPrefix(version, "3.") || strings.HasPrefix(version, "2.7") {
-				versionMap[version] = true
-			}
-		}
-	}
-
-	return p.versionsMapToSlice(versionMap), nil
-}
-
-// versionsMapToSlice converts a version map to a sorted slice of AvailableVersion
-func (p *Provider) versionsMapToSlice(versionMap map[string]bool) []runtime.AvailableVersion {
-	// Convert map to sorted slice
-	var versionStrings []string
-	for version := range versionMap {
-		versionStrings = append(versionStrings, version)
-	}
-
-	// Sort versions in descending order (newest first)
-	sort.Slice(versionStrings, func(i, j int) bool {
-		return versionStrings[i] > versionStrings[j]
-	})
-
-	// Convert to AvailableVersion format
+	// Convert to AvailableVersion format and sort by semantic version (newest first)
 	versions := make([]runtime.AvailableVersion, 0, len(versionStrings))
-	for i, v := range versionStrings {
-		notes := ""
-		if i == 0 {
-			notes = "Latest"
-		}
+	for _, v := range versionStrings {
 		versions = append(versions, runtime.AvailableVersion{
 			Version: runtime.NewVersion(v),
-			Notes:   notes,
+			Notes:   "",
 		})
 	}
 
-	return versions
+	// Sort by version descending (newest first)
+	runtime.SortVersionsDesc(versions)
+
+	return versions, nil
 }
 
 // ExecutablePath returns the path to the Ruby executable
